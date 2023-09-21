@@ -2,7 +2,11 @@ import aiohttp
 import logging
 from typing import Awaitable
 
-from app.modules.hketa.enums.language import Language
+
+try:
+    from app.modules.hketa import enums
+except (ImportError, ModuleNotFoundError):
+    import enums
 
 
 def aioex_to_etex(func: Awaitable):
@@ -41,8 +45,8 @@ class HketaException(Exception):
         logging.error(f"error occurs: {self.__class__.__name__}")
         super().__init__(*args)
 
-    def get_msg(self, lang: Language = Language.TC) -> str:
-        if lang == Language.TC:
+    def get_msg(self, lang: enums.Language = enums.Language.TC) -> str:
+        if lang == enums.Language.TC:
             return self._tc_msg
         else:
             return self._en_msg
@@ -58,7 +62,7 @@ class EndOfService(HketaException):
 class ErrorReturns(HketaException):
     """API returned an error with messages//API call failed with messages"""
 
-    def get_msg(self, lang: Language = Language.TC):
+    def get_msg(self, lang: enums.Language = enums.Language.TC):
         return str(self)
 
 

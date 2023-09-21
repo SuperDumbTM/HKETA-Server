@@ -1,98 +1,90 @@
+import asyncio
+import csv
+import datetime
+import json
 import logging
 import os
-import json
-import csv
 import time
-import datetime
-import asyncio
-import aiohttp
 from abc import ABC, abstractmethod
+from typing import Any, Mapping
+
+import aiohttp
 
 try:
-    import api
-    import enums as etaenums
-    from route_entry import RouteEntry
+    from app.modules.hketa import api, enums, models
 except ImportError:
-    from . import api
-    from . import enums as etaenums
-    from .route_entry import RouteEntry
+    import api
+    import enums
+    import models
+
+_TODAY = datetime.date.today().strftime('%Y%m%d')
+"""Today's date (YYYYMMDD)"""
 
 
-ROUTEDIR = "route"
-"""\"route\" file directory name"""
-
-RTJSON = "routes.json"
-"""\"routes\" data file name"""
-
-
-class OperatorData(ABC):
+class CompanyData(ABC):
     """
         # Public Transport Operation Data Retriver
         ~~~~~~~~~~~~~~~~~~~~~
         `OperatorData` is designed to retrive and store the data to local file system.
-        
+
         It can work without storing the data to local.
         However, it will takes much longer time to retrive data and may fails due to API rate limit
 
         ---
         `fetch_route(...)` and `fetch_routes(...)` function are async functions.
         If you call those function, please call it in async fashion.
-        
+
         Alternatively, `route(...)` and `routes(...)` function will handle the async call for you with additional logic
     """
-
-    today = datetime.date.today().strftime('%Y%m%d')
-    """string repersentation of today date (YYYYMMDD)"""
 
     threshold: int
     """threshold to determine an file is outdated (in day)"""
 
-    _dirpath: str
-    """root directory of the respective class (company/transportation).
-    """
-
-    _store: bool
+    is_store: bool
     """indicator of storing routes data to local or not"""
 
+    _root: os.PathLike
+    """root directory of the respective class (company/transportation)."""
+
+    @property
+    def routes_json(self) -> os.PathLike:
+        """Path to \"routes\" data file name"""
+        return os.path.join(self._root, "routes.json")
+
+    @property
+    def route_directory(self) -> os.PathLike:
+        """Path to \"route\" data directory"""
+        return os.path.join(self._root, "routes")
+
     @staticmethod
-    def lang_key(locale: etaenums.Language):
+    def lang_key(locale: enums.Language):
         match locale:
-            case etaenums.Language.TC:
+            case enums.Language.TC:
                 return "name_tc"
-            case etaenums.Language.EN:
+            case enums.Language.EN:
                 return "name_en"
             case _:
-                raise KeyError(f"undefined locale: {locale}")
+                raise KeyError(f"Undefined locale: {locale}.")
 
-    def __init__(self,
-                 root: os.PathLike,
-                 dir_name: os.PathLike,
-                 store_local: bool = True,
-                 threshold: int = 30) -> None:
+    def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         if store_local and root is None:
-            logging.error(f"no directory is provided for storing data files")
+            logging.error("No directory is provided for storing data files.")
             raise TypeError(
                 "'store_local' is set to True but argument 'root' is missing")
 
-        logging.debug(f"expiry threshold is set to {threshold}")
+        logging.debug(
+            "Expiry threshold:\t%d\nStore to local:\t%s\nDirectory:\t%s",
+            threshold, 'yes' if store_local else 'no', root)
         self.threshold = threshold
-        logging.debug(f"store_local is set to {store_local}")
-        self._store = store_local
+        self.is_store = store_local
+        self._root = root
 
-        if self._store:
-            if not os.path.exists(root):
-                logging.info(f"{root} does not exists, creating...")
-                os.mkdir(root)
-
-            # path of the data directory
-            self._dirpath = os.path.join(root, dir_name)
-            if not os.path.exists(os.path.join(self._dirpath, ROUTEDIR)):
-                logging.info(f"{os.path.join(self._dirpath, ROUTEDIR)} "
-                             "does not exists, creating...")
-                os.makedirs(os.path.join(self._dirpath, ROUTEDIR))
+        if store_local and not os.path.exists(root):
+            logging.info("'%s' does not exists, creating...", root)
+            os.makedirs(os.path.join(root, "routes"))
 
     def is_outdated(self, fpath: str) -> bool:
-        """Determine whether the file is outdated.
+        """Determine whether a data file is outdated.
 
         Args:
             fpath (str): File path
@@ -102,23 +94,22 @@ class OperatorData(ABC):
         """
         if os.path.exists(fpath):
             with open(fpath, "r", encoding="utf-8") as f:
-                lastupd = json.load(f)['lastupdate']
+                lastupd = json.load(f)['last_update']
                 lastupd_unix = time.mktime(
                     datetime.datetime.strptime(lastupd, "%Y%m%d").timetuple())
 
-                unix_diff = time.time() - lastupd_unix
-                return True if unix_diff > self.threshold * 24 * 60 * 60 else False
+                return (time.time() - lastupd_unix) > self.threshold * 24 * 60 * 60
         else:
             return True
 
     @abstractmethod
-    async def fetch_route(self, route: RouteEntry) -> dict:
+    async def fetch_route(self, route: models.RouteEntry) -> dict[str, Any]:
         """Retrive stop list and data of the `route`
 
         Returns:
             >>> example
             {
-                'lastupdate': "YYYYMMDD",
+                'last_update': "YYYYMMDD",
                 'data': {
                     '<stop code>': {
                         'seq': int,
@@ -131,13 +122,13 @@ class OperatorData(ABC):
         """
 
     @abstractmethod
-    async def fetch_routes(self) -> dict:
+    async def fetch_routes(self) -> dict[str, Any]:
         """Retrive all route list and data operating by the operator
 
         Returns:
             >>> example
             {
-                'lastupdate': "YYYYMMDD",
+                'last_update': "YYYYMMDD",
                 'data': {
                     '<stop code>': {
                         'seq': int,
@@ -148,65 +139,57 @@ class OperatorData(ABC):
             }
         """
 
-    def route(self, entry: RouteEntry) -> dict:
+    def route(self, entry: models.RouteEntry) -> dict[str, Any]:
         """Retrive stop list and data of the `route`. Create/update the data file if necessary
 
         Args:
-            route (RouteEntry): Target route
+            entry (route_entry.RouteEntry): Target route
         """
-        if not self._store:
-            logging.info(
-                f"retiving  {entry.name} route data (no store is set)")
+        fpath = os.path.join(self.route_directory, self.route_fname(entry))
 
-            return asyncio.run(self.fetch_route(entry))
-        elif self.is_outdated(os.path.join(self._dirpath,
-                                           ROUTEDIR,
-                                           self.route_fname(entry))):
+        if not self.is_store:
             logging.info(
-                f"{entry.name} local route data is outdated, refetching...")
+                "Retiving %s route data (no store is set)", entry.name)
+            return asyncio.run(self.fetch_route(entry))
+
+        if self.is_outdated(fpath):
+            logging.info(
+                "%s local route data is outdated, refetching...", entry.name)
 
             data = asyncio.run(self.fetch_route(entry))
             self._write_route(entry, data)
             return data
         else:
-            fpath = os.path.join(self._dirpath,
-                                 ROUTEDIR,
-                                 self.route_fname(entry))
             with open(fpath, "r", encoding="utf-8") as f:
-                logging.debug(
-                    f"loading {entry.name} route data from {fpath}")
-
+                logging.debug("loading %s route data from %s",
+                              entry.name, fpath)
                 return json.load(f)
 
-    def routes(self) -> dict:
+    def routes(self) -> dict[str, Any]:
         """Retrive all route list and data operating by the operator. Create/update when necessary
         """
-        if not self._store:
+        if not self.is_store:
             logging.info(
-                f"retiving {type(self).__name__} routes data (no store is set)")
-
+                "retiving %s routes data (no store is set)", type(self).__name__)
             return asyncio.run(self.fetch_routes())
-        elif self.is_outdated(os.path.join(self._dirpath, RTJSON)):
+        elif self.is_outdated(self.routes_json):
             logging.info(
-                f"{type(self).__name__} "
-                "local routes data is outdated or not exists, updating...")
+                "%s local routes data is outdated or not exists, updating...", type(self).__name__)
 
             data = asyncio.run(self.fetch_routes())
             self._write_routes(data)
             return data
         else:
-            fpath = os.path.join(self._dirpath, RTJSON)
-            with open(fpath, "r", encoding="utf-8") as f:
-                logging.debug(
-                    f"reading {type(self).__name__} route data from {fpath}")
-
+            with open(self.routes_json, "r", encoding="utf-8") as f:
+                logging.debug("reading %s route data from %s",
+                              type(self).__name__, self.routes_json)
                 return json.load(f)
 
-    def route_fname(self, entry: RouteEntry):
+    def route_fname(self, entry: models.RouteEntry) -> str:
         """Get file name of target `entry` stop data
 
         Args:
-            entry (RouteEntry): Target route
+            entry (route_entry.RouteEntry): Target route
 
         Returns:
             str: Name of the route data file 
@@ -214,47 +197,45 @@ class OperatorData(ABC):
         """
         return f"{entry.name}-{entry.direction}.json"
 
-    def _write_route(self, route: RouteEntry, data: dict) -> None:
+    def _write_route(self, entry: models.RouteEntry, data: Mapping) -> None:
         """Write `data` (route data) to persistent storage
 
         Args:
-            route (RouteEntry): Route that the `data` belongs to
+            entry (route_entry.RouteEntry): The route which the `data` belongs to
             data (dict): Stop list and data of the `route`
         """
-        fpath = os.path.join(
-            self._dirpath, ROUTEDIR, self.route_fname(route))
-        with open(fpath, "w", encoding="utf-8") as f:
-            logging.info(
-                f"writing {type(self).__name__} route data to {fpath} ")
-            json.dump(data, f)
+        fpath = os.path.join(self.route_directory, self.route_fname(entry))
 
-    def _write_routes(self, data: dict) -> None:
+        with open(fpath, "w", encoding="utf-8") as f:
+            logging.info("writing %s route data to %s",
+                         type(self).__name__, fpath)
+            json.dump(data, f, indent=4)
+
+    def _write_routes(self, data: Mapping) -> None:
         """Write `data` (routes data) to persistent storage
 
         Args:
             data (dict): Routes list and data of the operator
         """
 
-        fpath = os.path.join(self._dirpath, RTJSON)
-        with open(fpath, "w", encoding="utf-8") as f:
-            logging.info(
-                f"writing {type(self).__name__} routes list to {fpath}")
-            json.dump(data, f)
+        with open(self.routes_json, "w", encoding="utf-8") as f:
+            logging.info("writing %s routes data to %s",
+                         type(self).__name__, self.routes_json)
+            json.dump(data, f, indent=4)
 
 
-class KMBData(OperatorData):
+class KMBData(CompanyData):
 
     _direction = {
-        'O': etaenums.Direction.OUTBOUND.value,
-        'I': etaenums.Direction.INBOUND.value,
-        etaenums.Direction.OUTBOUND.value: "I",
-        etaenums.Direction.INBOUND.value: "O"
+        'O': enums.Direction.OUTBOUND.value,
+        'I': enums.Direction.INBOUND.value,
+        enums.Direction.OUTBOUND.value: "I",
+        enums.Direction.INBOUND.value: "O"
     }
     """direction text translation to `hketa.enums.Direction`"""
 
-    def __init__(self, **kwargs) -> None:
-        kwargs['dir_name'] = "kmb"
-        super().__init__(**kwargs)
+    def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
+        super().__init__(os.path.join(root, "kmb"), store_local, threshold)
 
     async def fetch_routes(self) -> dict:
         async def fetch_route_details(session: aiohttp.ClientSession,
@@ -281,7 +262,7 @@ class KMBData(OperatorData):
                 }
             }
         # generate output
-        output = {'lastupdate': super().today, 'data': {}}
+        output = {'last_update': _TODAY, 'data': {}}
 
         async with aiohttp.ClientSession() as session:
             tasks = []
@@ -299,7 +280,7 @@ class KMBData(OperatorData):
                     entry['service_type'], entry['details'])
         return output
 
-    async def fetch_route(self, route: RouteEntry) -> dict:
+    async def fetch_route(self, route: models.RouteEntry) -> dict:
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             # async helper, get stop details
             dets = (await api.kmb_stop_details(stop['stop'], session))['data']
@@ -311,13 +292,13 @@ class KMBData(OperatorData):
                 }
             }
         # generate output
-        output = {'lastupdate': super().today, 'data': {}}
+        output = {'last_update': _TODAY, 'data': {}}
 
         async with aiohttp.ClientSession() as session:
             tasks = []
             for stop in (await api.kmb_route_stop_list(
                     route.name,
-                    route.direction,
+                    route.direction.value,
                     route.service_type, session))['data']:
                 tasks.append(fetch_stop_details(session, stop))
 
@@ -326,29 +307,28 @@ class KMBData(OperatorData):
                 output['data'][stop_code] = entry[stop_code]
         return output
 
-    def route_fname(self, route: RouteEntry):
-        return f"{route.name}-{route.direction}-{route.service_type}.json"
+    def route_fname(self, entry: models.RouteEntry):
+        return f"{entry.name}-{entry.direction}-{entry.service_type}.json"
 
 
-class MTRLrtData(OperatorData):
+class MTRLrtData(CompanyData):
 
     _direction = {
-        etaenums.Direction.OUTBOUND.value: "1",
-        etaenums.Direction.INBOUND.value: "2",
-        '1': etaenums.Direction.OUTBOUND.value,
-        '2': etaenums.Direction.INBOUND.value
+        enums.Direction.OUTBOUND.value: "1",
+        enums.Direction.INBOUND.value: "2",
+        '1': enums.Direction.OUTBOUND.value,
+        '2': enums.Direction.INBOUND.value
     }
     """direction text translation to `hketa.enums`"""
 
-    def __init__(self, **kwargs) -> None:
-        kwargs['dir_name'] = os.path.join("mtr", "lrt")
-        super().__init__(**kwargs)
+    def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
+        super().__init__(os.path.join(root, "mtr_lrt"), store_local, threshold)
 
     async def fetch_routes(self) -> dict:
-        output = {'lastupdate': super().today, 'data': {}}
+        output = {'last_update': _TODAY, 'data': {}}
 
         apidata = csv.reader(await api.mtr_lrt_route_stop_list())
-        next(apidata)  # ignore header line
+        next(apidata)  # ignore the header line
 
         for row in apidata:
             # [0]route, [1]direction , [2]stopCode, [3]stopID, [4]stopTCName, [5]stopENName, [6]seq
@@ -374,8 +354,8 @@ class MTRLrtData(OperatorData):
 
         return output
 
-    async def fetch_route(self, route: RouteEntry) -> dict:
-        output = {'lastupdate': super().today, 'data': {}}
+    async def fetch_route(self, route: models.RouteEntry) -> dict:
+        output = {'last_update': _TODAY, 'data': {}}
 
         apidata = csv.reader(await api.mtr_lrt_route_stop_list())
         stops = [stop for stop in apidata
@@ -393,22 +373,21 @@ class MTRLrtData(OperatorData):
         return output
 
 
-class MTRTrainData(OperatorData):
+class MTRTrainData(CompanyData):
 
     _direction = {
-        'DT': etaenums.Direction.DOWNLINK.value,
-        'UT': etaenums.Direction.UPLINK.value,
-        etaenums.Direction.DOWNLINK.value: "DT",
-        etaenums.Direction.UPLINK.value: "UT",
+        'DT': enums.Direction.DOWNLINK.value,
+        'UT': enums.Direction.UPLINK.value,
+        enums.Direction.DOWNLINK.value: "DT",
+        enums.Direction.UPLINK.value: "UT",
     }
     """direction text translation to `hketa.enums`"""
 
-    def __init__(self, **kwargs) -> None:
-        kwargs['dir_name'] = os.path.join("mtr", "train")
-        super().__init__(**kwargs)
+    def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
+        super().__init__(os.path.join(root, "mtr_train"), store_local, threshold)
 
     async def fetch_routes(self) -> dict:
-        output = {'lastupdate': super().today, 'data': {}}
+        output = {'last_update': _TODAY, 'data': {}}
 
         apidata = csv.reader(await api.mtr_train_route_stop_list())
         next(apidata)  # ignore header line
@@ -445,12 +424,13 @@ class MTRTrainData(OperatorData):
 
         return output
 
-    async def fetch_route(self, route: RouteEntry) -> dict:
-        output = {'lastupdate': super().today, 'data': {}}
+    async def fetch_route(self, route: models.RouteEntry) -> dict:
+        output = {'last_update': _TODAY, 'data': {}}
 
         apidata = csv.reader(await api.mtr_train_route_stop_list())
 
-        if "-" in route.name:  # route with multiple origin/destination
+        if "-" in route.name:
+            # route with multiple origin/destination
             rtname, type_ = route.name.split("-")
             stops = [stop for stop in apidata
                      if stop[0] == rtname
@@ -472,22 +452,21 @@ class MTRTrainData(OperatorData):
         return output
 
 
-class MTRBusData(OperatorData):
+class MTRBusData(CompanyData):
 
     _direction = {
-        'O': etaenums.Direction.OUTBOUND.value,
-        'I': etaenums.Direction.INBOUND.value,
-        etaenums.Direction.OUTBOUND.value: "I",
-        etaenums.Direction.INBOUND.value: "O"
+        'O': enums.Direction.OUTBOUND.value,
+        'I': enums.Direction.INBOUND.value,
+        enums.Direction.OUTBOUND.value: "I",
+        enums.Direction.INBOUND.value: "O"
     }
     """direction text translation to `hketa.enums`"""
 
-    def __init__(self, **kwargs) -> None:
-        kwargs['dir_name'] = os.path.join("mtr", "bus")
-        super().__init__(**kwargs)
+    def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
+        super().__init__(os.path.join(root, "mtr_bus"), store_local, threshold)
 
     async def fetch_routes(self) -> dict:
-        output = {'lastupdate': super().today, 'data': {}}
+        output = {'last_update': _TODAY, 'data': {}}
 
         apidata = csv.reader(await api.mtr_bus_stop_list())
         next(apidata)  # ignore header line
@@ -500,13 +479,15 @@ class MTRBusData(OperatorData):
             output['data'][stop[0]].setdefault(
                 direction, {'orig': {}, 'dest': {}})
 
-            if (stop[2] == "1"):  # orignal
+            if stop[2] == "1.00":
+                # orignal stop
                 output['data'][stop[0]][direction]['orig'] = {
                     'stop_code': stop[3],
                     'name_tc': stop[6],
                     'name_en': stop[7]
                 }
-            else:  # destination
+            else:
+                # destination stop
                 output['data'][stop[0]][direction]['dest'] = {
                     'stop_code': stop[3],
                     'name_tc': stop[6],
@@ -515,8 +496,8 @@ class MTRBusData(OperatorData):
 
         return output
 
-    async def fetch_route(self, route: RouteEntry) -> dict:
-        output = {'lastupdate': super().today, 'data': {}}
+    async def fetch_route(self, route: models.RouteEntry) -> dict:
+        output = {'last_update': _TODAY, 'data': {}}
 
         async with aiohttp.ClientSession() as session:
             apidata = csv.reader(await api.mtr_bus_stop_list(session))
@@ -526,7 +507,7 @@ class MTRBusData(OperatorData):
         for stop in stops:
             # [0]route, [1]direction, [2]seq, [3]stopID, [4]stopLAT, [5]stopLONG, [6]stopTCName, [7]stopENName
             output['data'][stop[3]] = {
-                'seq': int(stop[2]),
+                'seq': int(float(stop[2])),
                 'name_tc': stop[6],
                 'name_en': stop[7]
             }
@@ -534,14 +515,10 @@ class MTRBusData(OperatorData):
         return output
 
 
-class BravoBusData(OperatorData):
+class CityBusData(CompanyData):
 
-    _co = "ctb"
-    """`company_id` for api calls"""
-
-    def __init__(self, company_id: str, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._co = company_id
+    def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
+        super().__init__(os.path.join(root, "ctb"), store_local, threshold)
 
     async def fetch_routes(self) -> dict:
         async def fetch_route_details(session: aiohttp.ClientSession,
@@ -549,9 +526,9 @@ class BravoBusData(OperatorData):
             # async helper, get stop details + stop ID
             directions = {
                 'inbound': (await api.bravobus_route_stop_list(
-                    self._co, route['route'], "inbound", session))['data'],
+                    "ctb", route['route'], "inbound", session))['data'],
                 'outbound': (await api.bravobus_route_stop_list(
-                    self._co, route['route'], "outbound", session))['data']
+                    "ctb", route['route'], "outbound", session))['data']
             }
 
             rtdets = {route['route']: {}}
@@ -576,11 +553,11 @@ class BravoBusData(OperatorData):
             return rtdets
 
         # generate output
-        output = {'lastupdate': super().today, 'data': {}}
+        output = {'last_update': _TODAY, 'data': {}}
 
         async with aiohttp.ClientSession() as session:
             tasks = [fetch_route_details(session, stop) for stop in
-                     (await api.bravobus_route_list(self._co, session))['data']]
+                     (await api.bravobus_route_list("ctb", session))['data']]
 
             # keys()[0] = route name
             output['data'] = {list(entry.keys())[0]: entry[list(entry.keys())[0]]
@@ -588,7 +565,7 @@ class BravoBusData(OperatorData):
 
         return output
 
-    async def fetch_route(self, route: RouteEntry) -> dict:
+    async def fetch_route(self, route: models.RouteEntry) -> dict:
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             # async helper, get stop details
             stopdets = (await api.bravobus_stop_details(stop['stop'], session))['data']
@@ -601,11 +578,11 @@ class BravoBusData(OperatorData):
             }
 
         # generate output
-        output = {'lastupdate': super().today, 'data': {}}
+        output = {'last_update': _TODAY, 'data': {}}
         async with aiohttp.ClientSession() as session:
             tasks = []
             for stop in (await api.bravobus_route_stop_list(
-                    self._co,
+                    "ctb",
                     route.name,
                     route.direction,
                     session))['data']:
@@ -616,17 +593,3 @@ class BravoBusData(OperatorData):
                 output['data'][stop_code] = entry[stop_code]
 
         return output
-
-
-class CityBusData(BravoBusData):
-
-    def __init__(self, **kwargs) -> None:
-        kwargs['dir_name'] = kwargs['company_id'] = "ctb"
-        super().__init__(**kwargs)
-
-
-class NWFirstBusData(BravoBusData):
-
-    def __init__(self, **kwargs) -> None:
-        kwargs['dir_name'] = kwargs['company_id'] = "nwfb"
-        super().__init__(**kwargs)

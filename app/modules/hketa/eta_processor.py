@@ -3,15 +3,12 @@ import datetime
 from abc import ABC, abstractmethod
 
 try:
+    from app.modules.hketa import api, enums, exceptions, facades
+except (ImportError, ModuleNotFoundError):
     import api
-    import exceptions as etaex
-    import route_details as rtdet
-    from enums.stop_type import StopType
-except ImportError:
-    from . import api
-    from . import exceptions as etaex
-    from . import route_details as rtdet
-    from .enums.stop_type import StopType
+    import enums
+    import exceptions
+    import facades
 
 
 class EtaProcessor(ABC):
@@ -23,18 +20,18 @@ class EtaProcessor(ABC):
 
     ---
     during initialisation, `EtaProcessor` will check whether the route is exists
-    or not.  If not exists, `etaex.RouteNotExist` will be raised.
+    or not.  If not exists, `exceptions.RouteNotExist` will be raised.
     """
 
     @property
-    def details(self) -> rtdet.RouteDetails:
+    def details(self) -> facades.RouteDetails:
         return self._rtdet
 
     @property
     def eta_entry(self):
         return self._rtdet.eta_entry
 
-    def __init__(self, detail: rtdet.RouteDetails) -> None:
+    def __init__(self, detail: facades.RouteDetails) -> None:
         self._rt = detail.eta_entry
         self._rtdet = detail
 
@@ -60,7 +57,7 @@ class EtaProcessor(ABC):
         """
 
     @abstractmethod
-    @etaex.aioex_to_etex
+    @exceptions.aioex_to_etex
     def raw_etas(self) -> dict[str | int]:
         """get the raws ETA(s) data from API with validity checking"""
 
@@ -96,8 +93,8 @@ class KmbEta(EtaProcessor):
                 continue
             elif stop["eta"] is None:
                 if stop["rmk_" + lang_code] == "":
-                    raise etaex.EndOfService
-                raise etaex.ErrorReturns(stop["rmk_" + lang_code])
+                    raise exceptions.EndOfService
+                raise exceptions.ErrorReturns(stop["rmk_" + lang_code])
             eta_dt = datetime.datetime.fromisoformat(stop["eta"])
             output.append({
                 'co': stop["co"],
@@ -115,18 +112,18 @@ class KmbEta(EtaProcessor):
                 break
 
         if len(output) == 0:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         return output
 
-    @etaex.aioex_to_etex
+    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
         apidata = await api.kmb_eta(
             super().eta_entry.name, super().eta_entry.service_type)
 
         if len(apidata) == 0:
-            raise etaex.APIError
+            raise exceptions.APIError
         elif apidata.get('data') is None:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         else:
             return apidata
 
@@ -144,7 +141,7 @@ class MtrBusEta(EtaProcessor):
                 continue
 
             for eta in stop["bus"]:
-                if super().details.stop_type() == StopType.ORIG:
+                if super().details.stop_type() == enums.StopType.ORIG:
                     time_ref = "departure"
                 else:
                     time_ref = "arrival"
@@ -171,10 +168,10 @@ class MtrBusEta(EtaProcessor):
             break
 
         if len(output) == 0:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         return output
 
-    @etaex.aioex_to_etex
+    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
         #  NOTE: Currently, "status" from API always is returned 0
         #    possible due to the service is in testing stage.
@@ -187,11 +184,11 @@ class MtrBusEta(EtaProcessor):
             super().eta_entry.name, super().details.lang_code())
 
         if len(apidata) == 0:
-            raise etaex.APIError
+            raise exceptions.APIError
         elif apidata["routeStatusRemarkTitle"] in ("\u505c\u6b62\u670d\u52d9", "Non-service hours"):
-            raise etaex.EndOfService
+            raise exceptions.EndOfService
         elif apidata["routeStatusRemarkTitle"] is not None:
-            raise etaex.ErrorReturns(apidata["routeStatusRemarkTitle"])
+            raise exceptions.ErrorReturns(apidata["routeStatusRemarkTitle"])
         else:
             return apidata
 
@@ -236,18 +233,18 @@ class MtrLrtEta(EtaProcessor):
                     })
 
         if len(output) == 0:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         return output
 
-    @etaex.aioex_to_etex
+    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
         apidata = await api.mtr_lrt_eta(super().eta_entry.stop)
 
         if len(apidata) == 0 or apidata.get('status', 0) == 0:
-            raise etaex.APIError
+            raise exceptions.APIError
         elif all(platform.get("end_service_status", False)
                  for platform in apidata['platform_list']):
-            raise etaex.EndOfService
+            raise exceptions.EndOfService
         else:
             return apidata
 
@@ -256,7 +253,7 @@ class MtrTrainEta(EtaProcessor):
 
     __dir = {"inbound": "UP", "outbound": "DOWN"}
 
-    def __init__(self, detail: rtdet.RouteDetails) -> None:
+    def __init__(self, detail: facades.RouteDetails) -> None:
         super().__init__(detail)
         self.linename = super().eta_entry.name.split("-")[0]
         self.direction = self.__dir[super().eta_entry.direction]
@@ -280,26 +277,26 @@ class MtrTrainEta(EtaProcessor):
             })
 
         if len(output) == 0:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         return output
 
-    @etaex.aioex_to_etex
+    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
         apidata = await api.mtr_train_eta(
             self.linename, super().eta_entry.stop, super().eta_entry.lang)
 
         if len(apidata) == 0:
-            raise etaex.APIError
+            raise exceptions.APIError
         elif apidata.get('status', 0) == 0:
             if "suspended" in apidata['message']:
-                raise etaex.StationClosed
+                raise exceptions.StationClosed
             elif apidata.get('url') is not None:
-                raise etaex.AbnormalService
+                raise exceptions.AbnormalService
             else:
-                raise etaex.APIError
+                raise exceptions.APIError
         elif apidata['data'][f'{self.linename}-{super().eta_entry.stop}'].get(
                 self.direction) is None:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         else:
             return apidata
 
@@ -336,17 +333,17 @@ class BravoBusEta(EtaProcessor):
                 })
 
         if len(output) == 0:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         return output
 
-    @etaex.aioex_to_etex
+    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
         apidata = await api.bravobus_eta(
             super().eta_entry.co, super().eta_entry.stop, super().eta_entry.name)
 
         if len(apidata) == 0 or apidata.get('data') is None:
-            raise etaex.APIError
+            raise exceptions.APIError
         elif len(apidata['data']) == 0:
-            raise etaex.EmptyDataError
+            raise exceptions.EmptyDataError
         else:
             return apidata

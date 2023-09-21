@@ -4,6 +4,7 @@
         "ms-python.vscode-pylance",
         "ms-python.isort",
         "njpwerner.autodocstring",
-        "ms-python.autopep8"
+        "ms-python.autopep8",
+        "ms-python.pylint"
     ]
 }
