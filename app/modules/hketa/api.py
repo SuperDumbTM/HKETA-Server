@@ -3,14 +3,15 @@ api module provides methods to retrive transport related data from data.gov.hk
 
 beaware that all method are asynchronous (implemented using `aiohttp`)
 """
-import aiohttp
 import logging
 from typing import Literal
 
+import aiohttp
 
 # ----------------------------------------
 #               ETA APIs
 # ----------------------------------------
+
 
 async def kmb_eta(route: str,
                   services_type: str | int,
@@ -32,7 +33,7 @@ async def kmb_eta(route: str,
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = f"https://data.etabus.gov.hk/v1/transport/kmb/route-eta/{route}/{services_type}"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -61,7 +62,7 @@ async def mtr_bus_eta(route: str,
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule"
-    logging.debug(f"post request: {url}")
+    logging.debug("POST request to '%s'", url)
 
     if session is None:
         async with aiohttp.request(
@@ -94,7 +95,7 @@ async def mtr_lrt_eta(stop: int, session: aiohttp.ClientSession = None) -> dict:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request(
@@ -132,7 +133,7 @@ async def mtr_train_eta(route: str,
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request(
@@ -173,7 +174,7 @@ async def bravobus_eta(company: Literal["ctb", "nwfb"],
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/eta/{company}/{stop_id}/{route}"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -203,9 +204,9 @@ async def mtr_bus_stop_list(session: aiohttp.ClientSession = None) -> list:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://opendata.mtr.com.hk/data/mtr_bus_stops.csv"
-    logging.debug(f"get request: {url}")
-    if session is None:
+    logging.debug("GET request to '%s'", url)
 
+    if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
             return (await response.text("utf-8")).splitlines()
     else:
@@ -229,7 +230,7 @@ async def mtr_bus_route_list(session: aiohttp.ClientSession = None) -> list:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://opendata.mtr.com.hk/data/mtr_bus_routes.csv"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -255,7 +256,7 @@ async def mtr_lrt_route_stop_list(session: aiohttp.ClientSession = None) -> list
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://opendata.mtr.com.hk/data/light_rail_routes_and_stops.csv"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -281,7 +282,7 @@ async def mtr_train_route_stop_list(session: aiohttp.ClientSession = None) -> li
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -306,7 +307,7 @@ async def kmb_route_list(session: aiohttp.ClientSession = None) -> dict:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://data.etabus.gov.hk/v1/transport/kmb/route/"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -316,11 +317,10 @@ async def kmb_route_list(session: aiohttp.ClientSession = None) -> dict:
             return await response.json()
 
 
-async def kmb_route_stop_list(
-        route: str,
-        dir: Literal["inbound", "outbound"],
-        services_type: int,
-        session: aiohttp.ClientSession = None) -> dict:
+async def kmb_route_stop_list(route: str,
+                              direction: Literal["inbound", "outbound"],
+                              services_type: int,
+                              session: aiohttp.ClientSession = None) -> dict:
     """Fetch KMB stop list (by route) from `Route-Stop Data` API
 
     KMB API(s): https://data.gov.hk/en-data/dataset/hk-td-tis_21-etakmb
@@ -337,8 +337,8 @@ async def kmb_route_stop_list(
     Raises:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
-    url = f"https://data.etabus.gov.hk/v1/transport/kmb/route-stop/{route}/{dir}/{services_type}"
-    logging.debug(f"get request: {url}")
+    url = f"https://data.etabus.gov.hk/v1/transport/kmb/route-stop/{route}/{direction}/{services_type}"
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -365,7 +365,7 @@ async def kmb_stop_details(stop_id: str,
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = f"https://data.etabus.gov.hk/v1/transport/kmb/stop/{stop_id}"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -393,7 +393,7 @@ async def bravobus_route_list(company: Literal["ctb", "nwfb"],
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/route/{company}"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -406,7 +406,7 @@ async def bravobus_route_list(company: Literal["ctb", "nwfb"],
 async def bravobus_route_stop_list(
         company: Literal["ctb", "nwfb"],
         route: str,
-        dir: Literal["inbound", "outbound"],
+        direction: Literal["inbound", "outbound"],
         session: aiohttp.ClientSession = None) -> dict:
     """Fetch CityBys/NWFB stop list (by route) from `Bus Stop List of specific Route data` API
 
@@ -427,8 +427,8 @@ async def bravobus_route_stop_list(
     Raises:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
-    url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/route-stop/{company}/{route}/{dir}"
-    logging.debug(f"get request: {url}")
+    url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/route-stop/{company}/{route}/{direction}"
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:
@@ -457,7 +457,7 @@ async def bravobus_stop_details(stop_id: str,
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/stop/{stop_id}"
-    logging.debug(f"get request: {url}")
+    logging.debug("GET request to '%s'", url)
 
     if session is None:
         async with aiohttp.request('GET', url, raise_for_status=True) as response:

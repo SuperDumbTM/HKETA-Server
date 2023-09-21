@@ -2,7 +2,7 @@ from typing import Iterable
 from enum import Enum
 
 
-class Language(str, Enum):
+class Locale(str, Enum):
     """Language code for text language"""
 
     TC = "tc"
@@ -12,17 +12,17 @@ class Language(str, Enum):
     def values(cls) -> Iterable[str]:
         return list(map(lambda c: c.value, cls))
 
-    def from_str(self, locale: str) -> "Language":
-        for code in Language:
+    def from_str(self, locale: str) -> "Locale":
+        for code in Locale:
             if (code.value.lower() == locale.lower()):
                 return code
-        raise ValueError(f"language not exists: {locale}")
+        raise ValueError(f"Locale not exists: {locale}")
 
     def description(self) -> str:
         match self:
-            case Language.TC:
+            case Locale.TC:
                 return "繁體中文"
-            case Language.EN:
+            case Locale.EN:
                 return "English"
 
 
@@ -46,31 +46,31 @@ class Company(str, Enum):
                 return co
         raise ValueError(f"company abbreviation not exists: {company}")
 
-    def description(self, language: Language = Language.TC) -> str:
+    def description(self, language: Locale = Locale.TC) -> str:
         match language, self:
-            case Language.TC, Company.KMB:
+            case Locale.TC, Company.KMB:
                 return "九巴"
-            case Language.TC, Company.MTRBUS:
+            case Locale.TC, Company.MTRBUS:
                 return "港鐵巴士"
-            case Language.TC, Company.MTRLRT:
+            case Locale.TC, Company.MTRLRT:
                 return "輕鐵"
-            case Language.TC, Company.MTRTRAIN:
+            case Locale.TC, Company.MTRTRAIN:
                 return "地鐵"
-            case Language.TC, Company.CTB:
+            case Locale.TC, Company.CTB:
                 return "城巴"
-            case Language.TC, Company.NWFB:
+            case Locale.TC, Company.NWFB:
                 return "新巴"
-            case Language.EN, Company.KMB:
+            case Locale.EN, Company.KMB:
                 return "KMB"
-            case Language.EN, Company.MTRBUS:
+            case Locale.EN, Company.MTRBUS:
                 return "MTR Bus"
-            case Language.EN, Company.MTRLRT:
+            case Locale.EN, Company.MTRLRT:
                 return "MTR LRT"
-            case Language.EN, Company.MTRTRAIN:
+            case Locale.EN, Company.MTRTRAIN:
                 return "MTR Train"
-            case Language.EN, Company.CTB:
+            case Locale.EN, Company.CTB:
                 return "City Bus"
-            case Language.EN, Company.NWFB:
+            case Locale.EN, Company.NWFB:
                 return "First Bus"
 
 
@@ -90,15 +90,15 @@ class Direction(str, Enum):
                 return dir
         raise ValueError(f"direction not exists: {direction}")
 
-    def description(self, language: Language = Language.TC) -> str:
+    def description(self, language: Locale = Locale.TC) -> str:
         match language, self:
-            case Language.TC, Direction.OUTBOUND:
+            case Locale.TC, Direction.OUTBOUND:
                 return "去程"
-            case Language.TC, Direction.INBOUND:
+            case Locale.TC, Direction.INBOUND:
                 return "回程"
-            case Language.EN, Direction.OUTBOUND:
+            case Locale.EN, Direction.OUTBOUND:
                 return "Outbound"
-            case Language.EN, Direction.INBOUND:
+            case Locale.EN, Direction.INBOUND:
                 return "Inbound"
 
 
@@ -119,17 +119,17 @@ class StopType(str, Enum):
                 return ty
         raise ValueError(f"stop type not exists: {type_}")
 
-    def description(self, language: Language = Language.TC) -> "StopType":
+    def description(self, language: Locale = Locale.TC) -> "StopType":
         match language, self:
-            case Language.TC, StopType.ORIG | StopType.ORIGINATION:
+            case Locale.TC, StopType.ORIG | StopType.ORIGINATION:
                 return "起點站"
-            case Language.TC, StopType.STOP | StopType.MIDWAY:
+            case Locale.TC, StopType.STOP | StopType.MIDWAY:
                 return "中途站"
-            case Language.TC, StopType.DEST | StopType.DESTINATION:
+            case Locale.TC, StopType.DEST | StopType.DESTINATION:
                 return "終點站"
-            case Language.EN, StopType.ORIG | StopType.ORIGINATION:
+            case Locale.EN, StopType.ORIG | StopType.ORIGINATION:
                 return "Origination"
-            case Language.EN, StopType.STOP | StopType.MIDWAY:
+            case Locale.EN, StopType.STOP | StopType.MIDWAY:
                 return "Midway Stop"
-            case Language.EN, StopType.DEST | StopType.DESTINATION:
+            case Locale.EN, StopType.DEST | StopType.DESTINATION:
                 return "Destination"

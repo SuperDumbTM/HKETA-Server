@@ -10,7 +10,7 @@ except (ImportError, ModuleNotFoundError):
     import models
 
 
-DIRLOGO = os.path.join(os.path.dirname(__file__), "logo", "mono_neg")
+_DIRLOGO = os.path.join(os.path.dirname(__file__), "logo", "mono_neg")
 
 
 def singleton(cls):
@@ -25,60 +25,60 @@ def singleton(cls):
 
 class Transport(ABC):
     """
-        Public Transport Operator
+        Public Transport
         ~~~~~~~~~~~~~~~~~~~~~
-        `Operator` representing a public transport company, providing
-        information related to the company, mainly operating routes information
+        `Transport` representing a public transport company, providing
+        information related to the company, mainly operating routes' information
 
-        All child of of `Operator` is implemented as singleton.
+        All child of of `Transport` is implemented as singleton.
 
         ---
-        Language of information returns depends on the `route_entry.RouteEntry` parameter (if applicatable)
+        Language of information returns depends on the `RouteEntry` (if applicatable)
 
         ---
         Args:
-            route_data (RouteData): RouteData instance for `Operator` retriving routes information
+            route_data (RouteData): RouteData instance for `Transport` retriving routes information
     """
 
-    _rtdt: company_data.CompanyData
-    _routes_dt: dict
+    _provider: company_data.CompanyData
+    _data: dict
+    """All routes data of the transport company"""
 
     @property
     def data(self) -> dict:
-        """routes data"""
-        return self._routes_dt
+        return self._data
 
     @property
     def route_data(self) -> company_data.CompanyData:
         """route data instance"""
-        return self._rtdt
+        return self._provider
 
     def __init__(self, route_data: company_data.CompanyData) -> None:
-        self._rtdt = route_data
-        self._routes_dt = self._rtdt.routes()['data']
+        self._provider = route_data
+        self._data = self._provider.routes()['data']
 
     @abstractmethod
     def logo(self) -> io.BufferedReader:
-        """gets the company logo in bytes"""
+        """Get the company logo in bytes"""
 
     @abstractmethod
     def origin(self, entry: models.RouteEntry) -> str:
-        """gets the origin stop name of the route"""
+        """Get the origin stop name of the route"""
 
     @abstractmethod
     def orig_stopcode(self, entry: models.RouteEntry) -> str:
-        """gets the origin stop code of the route"""
+        """Get the origin stop code of the route"""
 
     @abstractmethod
     def destination(self, entry: models.RouteEntry) -> str:
-        """gets the destination stop name of the route"""
+        """Get the destination stop name of the route"""
 
     @abstractmethod
     def dest_stopcode(self, entry: models.RouteEntry) -> str:
-        """gets the destination stop code of the route"""
+        """Get the destination stop code of the route"""
 
     def stop_type(self, entry: models.RouteEntry) -> enums.StopType:
-        """gets the stop type of the stop"""
+        """Get the stop type of the stop"""
         if self.orig_stopcode(entry) == entry.stop:
             return enums.StopType.ORIG
         elif self.dest_stopcode(entry) == entry.stop:
@@ -90,15 +90,12 @@ class Transport(ABC):
 @singleton
 class KowloonMotorBus(Transport):
 
-    def __init__(self, route_data: company_data.KMBData) -> None:
-        super().__init__(route_data)
-
     def logo(self) -> io.BufferedReader:
-        return open(os.path.join(DIRLOGO, "kmb.bmp"), "rb")
+        return open(os.path.join(_DIRLOGO, "kmb.bmp"), "rb")
 
     def origin(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][entry.service_type][enums.StopType.ORIG][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][entry.service_type][enums.StopType.ORIG][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
@@ -107,7 +104,7 @@ class KowloonMotorBus(Transport):
 
     def destination(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][entry.service_type][enums.StopType.DEST][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][entry.service_type][enums.StopType.DEST][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
@@ -118,15 +115,12 @@ class KowloonMotorBus(Transport):
 @singleton
 class MTRBus(Transport):
 
-    def __init__(self, route_data: company_data.MTRBusData) -> None:
-        super().__init__(route_data)
-
     def logo(self) -> io.BufferedReader:
-        return open(os.path.join(DIRLOGO, "mtr_bus.bmp"), "rb")
+        return open(os.path.join(_DIRLOGO, "mtr_bus.bmp"), "rb")
 
     def origin(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
@@ -135,7 +129,7 @@ class MTRBus(Transport):
 
     def destination(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][enums.StopType.DEST][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][enums.StopType.DEST][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
@@ -146,16 +140,13 @@ class MTRBus(Transport):
 @singleton
 class MTRLightRail(Transport):
 
-    def __init__(self, route_data: company_data.MTRLrtData) -> None:
-        super().__init__(route_data)
-
     def logo(self) -> io.BufferedReader:
-        return open(os.path.join(DIRLOGO, "mtr_lrt.bmp"), "rb")
+        return open(os.path.join(_DIRLOGO, "mtr_lrt.bmp"), "rb")
 
     def origin(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._rtdt.lang_key(entry.lang)]
-        except Exception:
+            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._provider.lang_key(entry.lang)]
+        except KeyError:
             return "-----"
 
     def orig_stopcode(self, entry: models.RouteEntry):
@@ -168,8 +159,8 @@ class MTRLightRail(Transport):
             if entry.name in ("705", "706"):
                 return "天水圍循環綫" if entry.lang == enums.Language.TC else "TSW Circular"
             else:
-                return super().data[entry.name][entry.direction][enums.StopType.DEST][self._rtdt.lang_key(entry.lang)]
-        except Exception:
+                return super().data[entry.name][entry.direction][enums.StopType.DEST][self._provider.lang_key(entry.lang)]
+        except KeyError:
             return "-----"
 
     def dest_stopcode(self, entry: models.RouteEntry):
@@ -179,15 +170,12 @@ class MTRLightRail(Transport):
 @singleton
 class MTRTrain(Transport):
 
-    def __init__(self, route_data: company_data.MTRTrainData) -> None:
-        super().__init__(route_data)
-
     def logo(self) -> io.BufferedReader:
-        return open(os.path.join(DIRLOGO, "mtr_train.bmp"), "rb")
+        return open(os.path.join(_DIRLOGO, "mtr_train.bmp"), "rb")
 
     def origin(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
@@ -196,7 +184,7 @@ class MTRTrain(Transport):
 
     def destination(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][enums.StopType.DEST][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][enums.StopType.DEST][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
@@ -204,11 +192,14 @@ class MTRTrain(Transport):
         return super().data[entry.name][entry.direction][enums.StopType.DEST]['stop_code']
 
 
-class BravoTransport(Transport):
+class CityBus(Transport):
+
+    def logo(self) -> io.BufferedReader:
+        return open(os.path.join(_DIRLOGO, "ctb.bmp"), "rb")
 
     def origin(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][enums.StopType.ORIG][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
@@ -217,29 +208,9 @@ class BravoTransport(Transport):
 
     def destination(self, entry: models.RouteEntry):
         try:
-            return super().data[entry.name][entry.direction][enums.StopType.DEST][self._rtdt.lang_key(entry.lang)]
+            return super().data[entry.name][entry.direction][enums.StopType.DEST][self._provider.lang_key(entry.lang)]
         except KeyError:
             return "-----"
 
     def dest_stopcode(self, entry: models.RouteEntry):
         return super().data[entry.name][entry.direction][enums.StopType.DEST]['stop_code']
-
-
-@singleton
-class CityBus(BravoTransport):
-
-    def __init__(self, route_data: company_data.CityBusData) -> None:
-        super().__init__(route_data)
-
-    def logo(self) -> io.BufferedReader:
-        return open(os.path.join(DIRLOGO, "ctb.bmp"), "rb")
-
-
-@singleton
-class NWFirstBus(BravoTransport):
-
-    def __init__(self, route_data: company_data.NWFirstBusData) -> None:
-        super().__init__(route_data)
-
-    def logo(self) -> io.BufferedReader:
-        return open(os.path.join(DIRLOGO, "nwfb.bmp"), "rb")

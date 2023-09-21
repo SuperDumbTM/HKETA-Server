@@ -1,3 +1,5 @@
+# pylint: disable=redefined-outer-name,
+
 try:
     from app.modules.hketa import route, transport
 except (ImportError, ModuleNotFoundError):
@@ -19,12 +21,6 @@ class RouteDetails(object):
                  transport: transport.Transport) -> None:
         self._route = route
         self._transport = transport
-
-    def route_exists(self, raise_: bool = False) -> bool:
-        return self._route.route_exists(raise_)
-
-    def lang_code(self):
-        return self._route.lang_code()
 
     def route_name(self):
         return self._route.route_name()

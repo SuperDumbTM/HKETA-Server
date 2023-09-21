@@ -1,18 +1,16 @@
-from typing import Annotated, Optional
-from fastapi import APIRouter, Query
+from typing import Optional
+from fastapi import APIRouter
 
-from app.modules.hketa.enums.company import Company
-from app.modules.hketa.enums.direction import Direction
-from app.modules.hketa.enums.language import Language
+from app.modules.hketa import enums
 
-router = APIRouter(prefix="/eta")
+router = APIRouter(prefix="")
 
 
-@router.get("/")
-def get_eta(company: Company,
+@router.get("/{company}/{route_name}/{direction}/eta")
+def get_eta(company: enums.Company,
             route_name: str,
-            direction: Direction,
+            direction: enums.Direction,
             stop: str,
             service_type: Optional[str | int] = None,
-            lang: Language = Language.TC):
+            lang: enums.Locale = enums.Locale.TC):
     pass

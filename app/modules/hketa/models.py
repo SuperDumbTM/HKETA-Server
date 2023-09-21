@@ -15,7 +15,7 @@ class RouteEntry:
     direction: enums.Direction
     service_type: Optional[str]
     stop: str
-    lang: enums.Language
+    lang: enums.Locale
 
     def __post_init__(self):
         self.name = str(self.name).upper()
@@ -32,3 +32,11 @@ class RouteEntry:
             'stop': self.stop,
             'lang': self.lang.value
         }
+
+
+@dataclass(slots=True)
+class Stop:
+
+    id: str
+    seq: int
+    name: dict[enums.Locale, str]
