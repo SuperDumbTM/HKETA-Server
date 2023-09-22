@@ -1,20 +1,21 @@
 import asyncio
 import csv
-from dataclasses import is_dataclass, asdict
 import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from typing import Any, Mapping
 
 import aiohttp
 
 try:
-    from app.modules.hketa import api, enums, models
+    from app.modules.hketa import api, enums, exceptions, models
 except ImportError:
     import api
     import enums
+    import exceptions
     import models
 
 
@@ -33,7 +34,9 @@ class CompanyData(ABC):
     """
 
     class EnhancedJSONEncoder(json.JSONEncoder):
-        """Reference: https://stackoverflow.com/a/51286749
+        """Encoder with dataclass support
+
+        Reference: https://stackoverflow.com/a/51286749
         """
 
         def default(self, o):
@@ -296,17 +299,20 @@ class KMBData(CompanyData):
             )
 
         async with aiohttp.ClientSession() as session:
-            tasks = []
-            for stop in (await api.kmb_route_stop_list(
-                    route.name,
-                    route.direction.value,
-                    route.service_type, session))['data']:
-                tasks.append(fetch_stop_details(session, stop))
+            stop_list = await api.kmb_route_stop_list(
+                route.name,
+                route.direction.value,
+                route.service_type, session)
 
-            return {
+            data = {
                 'last_update': _TODAY,
-                'data': [s for s in await asyncio.gather(*tasks)]
+                'data': await asyncio.gather(
+                    *[fetch_stop_details(session, stop) for stop in stop_list['data']])
             }
+
+            if len(data['data']) == 0:
+                raise exceptions.RouteNotExist()
+            return data
 
     def route_fname(self, entry: models.RouteEntry):
         return f"{entry.name}-{entry.direction}-{entry.service_type}.json"
@@ -361,6 +367,8 @@ class MTRLrtData(CompanyData):
                  if stop[0] == str(route.name)
                  and self._direction[stop[1]] == route.direction]
 
+        if len(stops) == 0:
+            raise exceptions.RouteNotExist()
         return {
             'last_update': _TODAY,
             'data': [
@@ -438,11 +446,13 @@ class MTRTrainData(CompanyData):
                      if stop[0] == str(route.name)
                      and self._direction[stop[1]] == route.direction]
 
+        if len(stops) == 0:
+            raise exceptions.RouteNotExist()
         return {
             'last_update': _TODAY,
             'data': [
                 models.Stop(
-                    stop[3],
+                    stop[2],
                     int(float(stop[-1])),
                     {enums.Locale.TC: stop[4], enums.Locale.EN: stop[5]}
                 ) for stop in stops
@@ -501,6 +511,8 @@ class MTRBusData(CompanyData):
         stops = [stop for stop in apidata
                  if stop[0] == str(route.name) and self._direction[stop[1]] == route.direction]
 
+        if len(stops) == 0:
+            raise exceptions.RouteNotExist()
         return {
             'last_update': _TODAY,
             'data': [
@@ -577,18 +589,21 @@ class CityBusData(CompanyData):
             )
 
         async with aiohttp.ClientSession() as session:
-            tasks = []
-            for stop in (await api.bravobus_route_stop_list(
-                    "ctb",
-                    route.name,
-                    route.direction,
-                    session))['data']:
-                tasks.append(fetch_stop_details(session, stop))
+            stop_list = await api.bravobus_route_stop_list(
+                "ctb",
+                route.name,
+                route.direction,
+                session)
 
-            return {
+            data = {
                 'last_update': _TODAY,
-                'data': [s for s in await asyncio.gather(*tasks)]
+                'data': await asyncio.gather(
+                    *[fetch_stop_details(session, stop) for stop in stop_list['data']])
             }
+
+            if len(data['data']) == 0:
+                raise exceptions.RouteNotExist()
+            return data
 
 
 if __name__ == "__main__":

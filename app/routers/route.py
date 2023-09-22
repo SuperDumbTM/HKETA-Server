@@ -13,23 +13,23 @@ def get_route_list(company: enums.Company,
                    direction: enums.Direction = None,
                    service_type: Optional[str | int] = None,
                    lang: enums.Locale = enums.Locale.TC):
+    comp_data = definitation.ETA_FACTORY.create_company_data(company)
 
-    factory = factories.EtaFactory(definitation.ROUTE_DATA_PATH, True, -1)
-    transport = factory.create_company_data(company)
+    route_list = comp_data.routes()
 
-    return transport.route(models.RouteEntry(
-        company, "K76", enums.Direction.INBOUND, '1', "", lang
-    ))
+    return route_list
 
 
-# @router.get("/{company}/{route_name}/{direction}/stops")
-# def get_stop_list(company: enums.Company,
-#                   route_name: str,
-#                   direction: enums.Direction,
-#                   service_type: Optional[str | int] = None,
-#                   lang: enums.Locale = enums.Locale.TC):
+@router.get("/{company}/{route_name}/{direction}/stops")
+def get_stop_list(company: enums.Company,
+                  route_name: str,
+                  direction: enums.Direction,
+                  service_type: Optional[str | int] = None):
 
-#     factory = factories.EtaFactory(definitation.ROUTE_DATA_PATH, True)
-#     transport = factory.create_company_data(company)
+    comp_data = definitation.ETA_FACTORY.create_company_data(company)
 
-#     return transport.routes()
+    return comp_data.route(
+        models.RouteEntry(
+            company, route_name, direction, service_type, None, enums.Locale.TC
+        )
+    )
