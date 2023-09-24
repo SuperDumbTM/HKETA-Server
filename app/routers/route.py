@@ -3,16 +3,13 @@ from typing import Optional
 from fastapi import APIRouter
 
 from app import definitation
-from app.modules.hketa import enums, factories, models
+from app.modules.hketa import enums, models
 
 router = APIRouter()
 
 
 @router.get("/{company}/routes")
-def get_route_list(company: enums.Company,
-                   direction: enums.Direction = None,
-                   service_type: Optional[str | int] = None,
-                   lang: enums.Locale = enums.Locale.TC):
+def get_route_list(company: enums.Company):
     comp_data = definitation.ETA_FACTORY.create_company_data(company)
 
     route_list = comp_data.routes()
@@ -30,6 +27,6 @@ def get_stop_list(company: enums.Company,
 
     return comp_data.route(
         models.RouteEntry(
-            company, route_name, direction, service_type, None, enums.Locale.TC
+            company, route_name, direction, "", service_type, enums.Locale.TC
         )
     )

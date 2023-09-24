@@ -108,7 +108,7 @@ class CompanyData(ABC):
             return True
 
     @abstractmethod
-    async def fetch_route(self, route: models.RouteEntry) -> dict[str, Any]:
+    async def fetch_route(self, entry: models.RouteEntry) -> dict[str, Any]:
         """Retrive stop list and data of the `route`
 
         Returns:
@@ -200,7 +200,7 @@ class CompanyData(ABC):
             str: Name of the route data file 
                 (e.g. "1A-outbound-1.json", "TML-outbound.json")
         """
-        return f"{entry.name}-{entry.direction}.json"
+        return f"{entry.name}-{entry.direction.value}-{entry.service_type}.json"
 
     def _write_route(self, entry: models.RouteEntry, data: Mapping) -> None:
         """Write `data` (route data) to persistent storage
@@ -244,47 +244,51 @@ class KMBData(CompanyData):
     async def fetch_routes(self) -> dict:
         async def fetch_route_details(session: aiohttp.ClientSession,
                                       stop: dict) -> dict:
-            # async helper, get stop ID
             direction = self._direction[stop['bound']]
-            stop_dets = (await api.kmb_route_stop_list(
+            stop_list = (await api.kmb_route_stop_list(
                 stop['route'], direction, stop['service_type'], session))['data']
             return {
                 'route': stop['route'],
                 'direction': direction,
-                'service_type': stop['service_type'],
-                'details': {
-                    'orig': {
-                        'stop_code': stop_dets[0]['stop'],
-                        'name_tc': stop['orig_tc'],
-                        'name_en': stop['orig_en']
-                    },
-                    'dest': {
-                        'stop_code': stop_dets[-1]['stop'],
-                        'name_tc': stop['dest_tc'],
-                        'name_en': stop['dest_en']
-                    }
-                }
+                'terminals': models.Terminal.Detail(
+                    stop['service_type'],
+                    models.Terminal.Stop(
+                        stop_list[0]['stop'],
+                        {
+                            enums.Locale.EN: stop['orig_en'],
+                            enums.Locale.TC: stop['orig_tc'],
+                        }
+                    ),
+                    models.Terminal.Stop(
+                        stop_list[-1]['stop'],
+                        {
+                            enums.Locale.EN: stop['dest_en'],
+                            enums.Locale.TC: stop['dest_tc'],
+                        }
+                    ),
+                )
             }
         # generate output
         output = {'last_update': _TODAY, 'data': {}}
 
         async with aiohttp.ClientSession() as session:
-            tasks = []
-            for stop in (await api.kmb_route_list(session))['data']:
-                tasks.append(fetch_route_details(session, stop))
+            tasks = [fetch_route_details(session, stop)
+                     for stop in (await api.kmb_route_list(session))['data']]
 
             for entry in await asyncio.gather(*tasks):
                 # route name
                 output['data'].setdefault(entry['route'], {})
                 # direction
                 output['data'][entry['route']].setdefault(
-                    entry['direction'], {})
+                    entry['direction'], [])
+
                 # service type
-                output['data'][entry['route']][entry['direction']].setdefault(
-                    entry['service_type'], entry['details'])
+                output['data'][entry['route']][entry['direction']].append(
+                    entry['terminals']
+                )
         return output
 
-    async def fetch_route(self, route: models.RouteEntry) -> dict:
+    async def fetch_route(self, entry: models.RouteEntry) -> dict:
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             """Get stop detail by stop ID
             """
@@ -300,9 +304,9 @@ class KMBData(CompanyData):
 
         async with aiohttp.ClientSession() as session:
             stop_list = await api.kmb_route_stop_list(
-                route.name,
-                route.direction.value,
-                route.service_type, session)
+                entry.name,
+                entry.direction.value,
+                entry.service_type, session)
 
             data = {
                 'last_update': _TODAY,
@@ -315,7 +319,7 @@ class KMBData(CompanyData):
             return data
 
     def route_fname(self, entry: models.RouteEntry):
-        return f"{entry.name}-{entry.direction}-{entry.service_type}.json"
+        return f"{entry.name}-{entry.direction.value}-{entry.service_type}.json"
 
 
 class MTRLrtData(CompanyData):
@@ -326,7 +330,7 @@ class MTRLrtData(CompanyData):
         '1': enums.Direction.OUTBOUND.value,
         '2': enums.Direction.INBOUND.value
     }
-    """direction text translation to `hketa.enums`"""
+    """Direction text translation"""
 
     def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         super().__init__(os.path.join(root, "mtr_lrt"), store_local, threshold)
@@ -340,32 +344,40 @@ class MTRLrtData(CompanyData):
         for row in apidata:
             # [0]route, [1]direction , [2]stopCode, [3]stopID, [4]stopTCName, [5]stopENName, [6]seq
             output['data'].setdefault(row[0], {
-                'outbound': {'orig': {}, 'dest': {}},
-                'inbound': {'orig': {}, 'dest': {}}
+                enums.Direction.INBOUND: [],
+                enums.Direction.OUTBOUND: [],
             })
 
             direction = self._direction[row[1]]
 
-            if (row[6] == "1.00"):  # original
-                output['data'][row[0]][direction]['orig'] = {
-                    'stop_code': row[3],
-                    'name_tc': row[4],
-                    'name_en': row[5]
-                }
-            else:  # destination
-                output['data'][row[0]][direction]['dest'] = {
-                    'stop_code': row[3],
-                    'name_tc': row[4],
-                    'name_en': row[5]
-                }
+            if (row[6] == "1.00"):
+                # original
+                output['data'][row[0]][direction].append(
+                    {'service_type': None})
+                output['data'][row[0]][direction][0]['orig'] = models.Terminal.Stop(
+                    row[3],
+                    {
+                        enums.Locale.EN: row[5],
+                        enums.Locale.TC: row[4]
+                    }
+                )
+            else:
+                # destination
+                output['data'][row[0]][direction][0]['dest'] = models.Terminal.Stop(
+                    row[3],
+                    {
+                        enums.Locale.EN: row[5],
+                        enums.Locale.TC: row[4]
+                    }
+                )
 
         return output
 
-    async def fetch_route(self, route: models.RouteEntry) -> dict:
+    async def fetch_route(self, entry: models.RouteEntry) -> dict:
         apidata = csv.reader(await api.mtr_lrt_route_stop_list())
         stops = [stop for stop in apidata
-                 if stop[0] == str(route.name)
-                 and self._direction[stop[1]] == route.direction]
+                 if stop[0] == str(entry.name)
+                 and self._direction[stop[1]] == entry.direction]
 
         if len(stops) == 0:
             raise exceptions.RouteNotExist()
@@ -389,7 +401,7 @@ class MTRTrainData(CompanyData):
         enums.Direction.DOWNLINK.value: "DT",
         enums.Direction.UPLINK.value: "UT",
     }
-    """direction text translation to `hketa.enums`"""
+    """Direction text translation"""
 
     def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         super().__init__(os.path.join(root, "mtr_train"), store_local, threshold)
@@ -413,38 +425,44 @@ class MTRTrainData(CompanyData):
             direction = self._direction[direction]
 
             output['data'].setdefault(row[0], {})
-            output['data'][row[0]].setdefault(direction, {})
+            output['data'][row[0]].setdefault(direction, [])
 
-            if (row[6] == '1'):  # origin
-                output['data'][row[0]][direction]['orig'] = {
-                    # 'id': row[3],
-                    'stop_code': row[2],
-                    'name_tc': row[4],
-                    'name_en': row[5]
-                }
-            else:  # destination
-                output['data'][row[0]][direction]['dest'] = {
-                    # 'id': row[3],
-                    'stop_code': row[2],
-                    'name_tc': row[4],
-                    'name_en': row[5]
-                }
+            if (row[6] == "1.00"):
+                # origin
+                output['data'][row[0]][direction].append(
+                    {'service_type': None})
+                output['data'][row[0]][direction][0]['orig'] = models.Terminal.Stop(
+                    row[2],
+                    {
+                        enums.Locale.EN: row[5],
+                        enums.Locale.TC: row[4]
+                    }
+                )
+            else:
+                # destination
+                output['data'][row[0]][direction][0]['dest'] = models.Terminal.Stop(
+                    row[2],
+                    {
+                        enums.Locale.EN: row[5],
+                        enums.Locale.TC: row[4]
+                    }
+                )
 
         return output
 
-    async def fetch_route(self, route: models.RouteEntry) -> dict:
+    async def fetch_route(self, entry: models.RouteEntry) -> dict:
         apidata = csv.reader(await api.mtr_train_route_stop_list())
 
-        if "-" in route.name:
+        if "-" in entry.name:
             # route with multiple origin/destination
-            rtname, type_ = route.name.split("-")
+            rtname, type_ = entry.name.split("-")
             stops = [stop for stop in apidata
                      if stop[0] == rtname
                      and type_ in stop[1]]
         else:
             stops = [stop for stop in apidata
-                     if stop[0] == str(route.name)
-                     and self._direction[stop[1]] == route.direction]
+                     if stop[0] == str(entry.name)
+                     and self._direction[stop[1]] == entry.direction]
 
         if len(stops) == 0:
             raise exceptions.RouteNotExist()
@@ -484,32 +502,37 @@ class MTRBusData(CompanyData):
             direction = self._direction[stop[1]]
 
             output['data'].setdefault(stop[0], {})
-            output['data'][stop[0]].setdefault(
-                direction, {'orig': {}, 'dest': {}})
+            output['data'][stop[0]].setdefault(direction, [])
 
             if stop[2] == "1.00":
-                # orignal stop
-                output['data'][stop[0]][direction]['orig'] = {
-                    'stop_code': stop[3],
-                    'name_tc': stop[6],
-                    'name_en': stop[7]
-                }
+                # orignal
+                output['data'][stop[0]][direction].append(
+                    {'service_type': None})
+                output['data'][stop[0]][direction][0]['orig'] = models.Terminal.Stop(
+                    stop[3],
+                    {
+                        enums.Locale.EN: stop[7],
+                        enums.Locale.TC: stop[6]
+                    }
+                )
             else:
-                # destination stop
-                output['data'][stop[0]][direction]['dest'] = {
-                    'stop_code': stop[3],
-                    'name_tc': stop[6],
-                    'name_en': stop[7]
-                }
+                # destination
+                output['data'][stop[0]][direction][0]['dest'] = models.Terminal.Stop(
+                    stop[3],
+                    {
+                        enums.Locale.EN: stop[7],
+                        enums.Locale.TC: stop[6]
+                    }
+                )
 
         return output
 
-    async def fetch_route(self, route: models.RouteEntry) -> dict:
+    async def fetch_route(self, entry: models.RouteEntry) -> dict:
         async with aiohttp.ClientSession() as session:
             apidata = csv.reader(await api.mtr_bus_stop_list(session))
 
         stops = [stop for stop in apidata
-                 if stop[0] == str(route.name) and self._direction[stop[1]] == route.direction]
+                 if stop[0] == str(entry.name) and self._direction[stop[1]] == entry.direction]
 
         if len(stops) == 0:
             raise exceptions.RouteNotExist()
@@ -532,50 +555,60 @@ class CityBusData(CompanyData):
 
     async def fetch_routes(self) -> dict:
         async def fetch_route_details(session: aiohttp.ClientSession,
-                                      route: dict) -> dict:
+                                      entry: dict) -> dict:
             # async helper, get stop details + stop ID
             directions = {
                 'inbound': (await api.bravobus_route_stop_list(
-                    "ctb", route['route'], "inbound", session))['data'],
+                    "ctb", entry['route'], "inbound", session))['data'],
                 'outbound': (await api.bravobus_route_stop_list(
-                    "ctb", route['route'], "outbound", session))['data']
+                    "ctb", entry['route'], "outbound", session))['data']
             }
 
-            rtdets = {route['route']: {}}
-            for direction, dets in directions.items():
-                if len(dets) == 0:
+            routes = {entry['route']: {}}
+            for direction, stop_list in directions.items():
+                if len(stop_list) == 0:
                     continue
-                orig = (await api.bravobus_stop_details(dets[0]['stop']))['data']
-                dest = (await api.bravobus_stop_details(dets[-1]['stop']))['data']
-                rtdets[route['route']].setdefault(direction, {
-                    'orig': {
-                        'name_tc': orig.get('name_tc', "未有資料"),
-                        'name_en': orig.get('name_en', "N/A"),
-                        'stop_code': dets[0]["stop"],
-                    },
-                    'dest': {
-                        'name_tc': dest.get('name_tc', "未有資料"),
-                        'name_en': dest.get('name_en', "N/A"),
-                        'stop_code': dets[-1]["stop"],
-                    }
-                })
 
-            return rtdets
+                ends = await asyncio.gather(*[
+                    api.bravobus_stop_details(stop_list[0]['stop']),
+                    api.bravobus_stop_details(stop_list[-1]['stop'])
+                ])
 
-        # generate output
-        output = {'last_update': _TODAY, 'data': {}}
+                routes[entry['route']].setdefault(direction, [
+                    models.Terminal.Detail(
+                        None,
+                        models.Terminal.Stop(
+                            stop_list[0]["stop"],
+                            {
+                                enums.Locale.EN: ends[0]['data'].get('name_en', "N/A"),
+                                enums.Locale.TC:  ends[0]['data'].get('name_tc', "未有資料"),
+                            }
+                        ),
+                        models.Terminal.Stop(
+                            stop_list[0]["stop"],
+                            {
+                                enums.Locale.EN: ends[-1]['data'].get('name_en', "N/A"),
+                                enums.Locale.TC:  ends[-1]['data'].get('name_tc', "未有資料"),
+                            }
+                        ),
+
+                    )
+                ])
+
+            return routes
 
         async with aiohttp.ClientSession() as session:
             tasks = [fetch_route_details(session, stop) for stop in
                      (await api.bravobus_route_list("ctb", session))['data']]
 
             # keys()[0] = route name
-            output['data'] = {list(entry.keys())[0]: entry[list(entry.keys())[0]]
-                              for entry in await asyncio.gather(*tasks)}
 
-        return output
+            return {
+                'last_update': _TODAY,
+                'data': {list(entry.keys())[0]: entry[list(entry.keys())[0]]
+                         for entry in await asyncio.gather(*tasks)}}
 
-    async def fetch_route(self, route: models.RouteEntry) -> dict:
+    async def fetch_route(self, entry: models.RouteEntry) -> dict:
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             # async helper, get stop details
             dets = (await api.bravobus_stop_details(stop['stop'], session))['data']
@@ -591,8 +624,8 @@ class CityBusData(CompanyData):
         async with aiohttp.ClientSession() as session:
             stop_list = await api.bravobus_route_stop_list(
                 "ctb",
-                route.name,
-                route.direction,
+                entry.name,
+                entry.direction,
                 session)
 
             data = {
@@ -607,7 +640,7 @@ class CityBusData(CompanyData):
 
 
 if __name__ == "__main__":
-    entry = models.RouteEntry(
+    entry_ = models.RouteEntry(
         enums.Company.KMB, "265M", enums.Direction.OUTBOUND, "1", "223DAE7E925E3BB9", enums.Locale.TC)
     route = MTRBusData("caches\\transport_data", True)
     route.routes()

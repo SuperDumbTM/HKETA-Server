@@ -1,5 +1,6 @@
 from typing import Optional
-from dataclasses import dataclass
+
+from pydantic.dataclasses import dataclass
 
 try:
     from app.modules.hketa import enums
@@ -7,14 +8,14 @@ except (ImportError, ModuleNotFoundError):
     import enums
 
 
-@dataclass(order=False, slots=True)
+@dataclass(slots=True)
 class RouteEntry:
 
     company: enums.Company
     name: str
     direction: enums.Direction
-    service_type: Optional[str]
     stop: str
+    service_type: Optional[str]
     lang: enums.Locale
 
     def __post_init__(self):
@@ -37,6 +38,26 @@ class RouteEntry:
 @dataclass(slots=True)
 class Stop:
 
-    id: str
+    stop_code: str
     seq: int
     name: dict[enums.Locale, str]
+
+
+@dataclass(slots=True)
+class Terminal:
+
+    @dataclass(slots=True)
+    class Stop:
+
+        stop_code: str
+        name: dict[enums.Locale, str]
+
+    @dataclass(slots=True)
+    class Detail:
+
+        service_type: Optional[str]
+        orig: Optional["Terminal.Stop"]
+        dest: Optional["Terminal.Stop"]
+
+    inbound: Optional[list[Detail]]
+    outbound: Optional[list[Detail]]

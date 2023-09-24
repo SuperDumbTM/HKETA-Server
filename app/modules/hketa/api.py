@@ -392,7 +392,7 @@ async def bravobus_route_list(company: Literal["ctb", "nwfb"],
     Raises:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
-    url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/route/{company}"
+    url = f"https://rt.data.gov.hk/v2/transport/citybus/route/{company}"
     logging.debug("GET request to '%s'", url)
 
     if session is None:
@@ -427,7 +427,7 @@ async def bravobus_route_stop_list(
     Raises:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
-    url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/route-stop/{company}/{route}/{direction}"
+    url = f"https://rt.data.gov.hk/v2/transport/citybus/route-stop/{company}/{route}/{direction}"
     logging.debug("GET request to '%s'", url)
 
     if session is None:
@@ -456,7 +456,7 @@ async def bravobus_stop_details(stop_id: str,
     Raises:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
-    url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/stop/{stop_id}"
+    url = f"https://rt.data.gov.hk/v2/transport/citybus/stop/{stop_id}"
     logging.debug("GET request to '%s'", url)
 
     if session is None:
