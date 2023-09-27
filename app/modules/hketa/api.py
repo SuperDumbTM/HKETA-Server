@@ -404,7 +404,7 @@ async def bravobus_route_list(company: Literal["ctb", "nwfb"],
 
 
 async def bravobus_route_stop_list(
-        company: Literal["ctb", "nwfb"],
+        company: Literal["ctb"],
         route: str,
         direction: Literal["inbound", "outbound"],
         session: aiohttp.ClientSession = None) -> dict:
@@ -412,11 +412,9 @@ async def bravobus_route_stop_list(
 
     CTB API(s): https://data.gov.hk/en-data/dataset/ctb-eta-transport-realtime-eta
 
-    NWFB API(s): https://data.gov.hk/tc-data/dataset/nwfb-eta-transport-realtime-eta
-
 
     Args:
-        company (Literal["ctb", "nwfb"]): bus company
+        company (Literal["ctb"]): bus company
         route (str): name (route number) of the bus route
         dir (Literal["inbound", "outbound"]): route direction
         session (aiohttp.ClientSession, optional): client session for HTTP connections
@@ -443,8 +441,6 @@ async def bravobus_stop_details(stop_id: str,
     """Fetch CityBus/NWFB stop information from `Stop Data` API
 
     CTB API(s): https://data.gov.hk/en-data/dataset/ctb-eta-transport-realtime-eta
-
-    NWFB API(s): https://data.gov.hk/tc-data/dataset/nwfb-eta-transport-realtime-eta
 
     Args:
         stop_id (str): bus stop id

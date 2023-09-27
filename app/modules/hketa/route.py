@@ -38,7 +38,7 @@ class Route(ABC):
     def __init__(self, entry: models.RouteEntry, company_data: company_data.CompanyData) -> None:
         self._entry = entry
         self._provider = company_data
-        self._data = self._provider.route(self._entry)['data']
+        self._data = self._provider.stop_list(self._entry)['data']
 
         if self._data.get(self._entry.stop) is None:
             raise exceptions.RouteNotExist
@@ -71,7 +71,6 @@ class KMBRoute(Route):
 
     def stop_name(self):
         try:
-            print(super().data[self._entry.stop])
             return super().data[self._entry.stop][self._name_key()]
         except KeyError:
             return self._entry.stop

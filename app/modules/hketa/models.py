@@ -35,29 +35,22 @@ class RouteEntry:
         }
 
 
-@dataclass(slots=True)
-class Stop:
+@dataclass(slots=True, frozen=True)
+class RouteInfo:
 
-    stop_code: str
-    seq: int
-    name: dict[enums.Locale, str]
+    inbound: Optional[list["Detail"]]
+    outbound: Optional[list["Detail"]]
 
-
-@dataclass(slots=True)
-class Terminal:
-
-    @dataclass(slots=True)
+    @dataclass(slots=True, frozen=True)
     class Stop:
 
         stop_code: str
+        seq: int
         name: dict[enums.Locale, str]
 
-    @dataclass(slots=True)
+    @dataclass(slots=True, frozen=True)
     class Detail:
 
         service_type: Optional[str]
-        orig: Optional["Terminal.Stop"]
-        dest: Optional["Terminal.Stop"]
-
-    inbound: Optional[list[Detail]]
-    outbound: Optional[list[Detail]]
+        orig: Optional["RouteInfo.Stop"]
+        dest: Optional["RouteInfo.Stop"]
