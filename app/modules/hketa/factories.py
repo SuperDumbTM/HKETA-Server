@@ -1,14 +1,16 @@
 import os
 
 try:
-    from app.modules.hketa import company_data, enums, models, transport, route, eta_processor
+    from app.modules.hketa import (company_data, enums, eta_processor, facades,
+                                   models, route, transport)
 except (ImportError, ModuleNotFoundError):
     import company_data
     import enums
-    import models
-    import transport
-    import route
     import eta_processor
+    import facades
+    import models
+    import route
+    import transport
 
 
 class EtaFactory:
@@ -52,48 +54,67 @@ class EtaFactory:
             case _:
                 raise ValueError(f"Unrecognized company: {company}")
 
+    def create_transport(self, company: enums.Company) -> transport.Transport:
+        match company:
+            case enums.Company.KMB:
+                return transport.KowloonMotorBus(self.create_company_data(company))
+            case enums.Company.MTRBUS:
+                return transport.MTRBus(self.create_company_data(company))
+            case enums.Company.MTRLRT:
+                return transport.MTRLightRail(self.create_company_data(company))
+            case enums.Company.MTRTRAIN:
+                return transport.MTRTrain(self.create_company_data(company))
+            case enums.Company.CTB:
+                return transport.CityBus(self.create_company_data(company))
+            case _:
+                raise ValueError(f"Unrecognized company: {company}")
+
     def create_route(self, entry: models.RouteEntry) -> route.Route:
         match entry.company:
             case enums.Company.KMB:
                 return route.KMBRoute(
                     entry,
-                    transport.KowloonMotorBus(
-                        self.create_company_data(entry.company))
+                    self.create_company_data(entry.company)
                 )
             case enums.Company.MTRBUS:
                 return route.MTRBusRoute(
                     entry,
-                    transport.MTRBus(self.create_company_data(entry.company))
+                    self.create_company_data(entry.company)
                 )
             case enums.Company.MTRLRT:
                 return route.MTRLrtRoute(
                     entry,
-                    transport.MTRTrain(self.create_company_data(entry.company))
+                    self.create_company_data(entry.company)
                 )
             case enums.Company.MTRTRAIN:
                 return route.MTRTrainRoute(
                     entry,
-                    transport.MTRTrain(self.create_company_data(entry.company))
+                    self.create_company_data(entry.company)
                 )
             case enums.Company.CTB:
                 return route.BravoBusRoute(
                     entry,
-                    transport.CityBus(self.create_company_data(entry.company))
+                    self.create_company_data(entry.company)
                 )
             case _:
-                raise ValueError(f"unrecognized company: {entry.company}")
+                raise ValueError(f"Unrecognized company: {entry.company}")
 
     def create_eta_processor(self, entry: models.RouteEntry) -> eta_processor.EtaProcessor:
         match entry.company:
             case enums.Company.KMB:
-                return eta_processor.KmbEta(self.create_route(route))
+                return eta_processor.KmbEta(
+                    facades.RouteDetails(self.create_route(entry), self.create_transport(entry.company)))
             case enums.Company.MTRBUS:
-                return eta_processor.MtrBusEta(self.create_route(route))
+                return eta_processor.MtrBusEta(
+                    facades.RouteDetails(self.create_route(entry), self.create_transport(entry.company)))
             case enums.Company.MTRLRT:
-                return eta_processor.MtrLrtEta(self.create_route(route))
+                return eta_processor.MtrLrtEta(
+                    facades.RouteDetails(self.create_route(entry), self.create_transport(entry.company)))
             case enums.Company.MTRTRAIN:
-                return eta_processor.MtrTrainEta(self.create_route(route))
+                return eta_processor.MtrTrainEta(
+                    facades.RouteDetails(self.create_route(entry), self.create_transport(entry.company)))
             case enums.Company.CTB | enums.Company.NWFB:
-                return eta_processor.BravoBusEta(self.create_route(route))
+                return eta_processor.BravoBusEta(
+                    facades.RouteDetails(self.create_route(entry), self.create_transport(entry.company)))
             case _:
-                raise ValueError(f"unrecognized company: {entry.company}")
+                raise ValueError(f"Unrecognized company: {entry.company}")

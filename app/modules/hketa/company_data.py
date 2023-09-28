@@ -4,9 +4,10 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from collections.abc import MutableMapping
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable
 
 import aiohttp
 
@@ -176,7 +177,7 @@ class CompanyData(ABC):
 
         return (models.RouteInfo.Stop(**stop) for stop in stops)
 
-    def route_list(self) -> Mapping[str, models.RouteInfo]:
+    def route_list(self) -> MutableMapping[str, models.RouteInfo]:
         """Retrive all route list and data operating by the operator. Create/update when necessary
         """
         if not self.is_store:
@@ -229,7 +230,7 @@ class CompanyData(ABC):
                             stop_code=rt_type['dest']['stop_code'],
                             seq=rt_type['dest']['seq'],
                             name={
-                                enums.Locale[locale.upper()]: text for locale, text in rt_type['orig']['name'].items()}
+                                enums.Locale[locale.upper()]: text for locale, text in rt_type['dest']['name'].items()}
                         )
                     ) for rt_type in direction['outbound']
                 ]
@@ -652,7 +653,8 @@ if __name__ == "__main__":
         "223DAE7E925E3BB9",
         "1",
         enums.Locale.TC)
-    cp_data = MTRTrainData("caches\\transport_data", True, 30)
+    cp_data = KMBData("caches\\transport_data", True, 30)
 
-    pprint.pprint(list(cp_data.stop_list(entry_)))
-    # pprint.pprint(cp_data.route_list().__sizeof__())
+    # pprint.pprint(list(cp_data.stop_list(entry_)))
+    # pprint.pprint(cp_data.route_list())
+    pprint.pprint(asyncio.run(cp_data.fetch_route_list()))

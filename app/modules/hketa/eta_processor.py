@@ -3,12 +3,13 @@ import datetime
 from abc import ABC, abstractmethod
 
 try:
-    from app.modules.hketa import api, enums, exceptions, facades
+    from app.modules.hketa import api, enums, exceptions, facades, models
 except (ImportError, ModuleNotFoundError):
     import api
     import enums
     import exceptions
     import facades
+    import models
 
 
 class EtaProcessor(ABC):
@@ -25,19 +26,23 @@ class EtaProcessor(ABC):
 
     @property
     def details(self) -> facades.RouteDetails:
-        return self._rtdet
+        return self._details
 
     @property
-    def eta_entry(self):
-        return self._rtdet.eta_entry
+    def route_entry(self) -> models.RouteEntry:
+        return self._details.eta_entry
+
+    @staticmethod
+    def dt_tostring(dt: datetime.datetime) -> str:
+        return datetime.datetime.strftime(dt, "%H:%M")
 
     def __init__(self, detail: facades.RouteDetails) -> None:
-        self._rt = detail.eta_entry
-        self._rtdet = detail
+        self._entry = detail.eta_entry
+        self._details = detail
 
     @abstractmethod
     def etas(self) -> list[dict[str, str | int]]:
-        """get processed ETA(s)
+        """Get processed ETAs
 
         Raises:
             EmptyDataError: no eta data
@@ -57,12 +62,11 @@ class EtaProcessor(ABC):
         """
 
     @abstractmethod
-    @exceptions.aioex_to_etex
-    def raw_etas(self) -> dict[str | int]:
-        """get the raws ETA(s) data from API with validity checking"""
+    async def raw_etas(self) -> dict[str | int]:
+        """Get the raw ETAs data from API with validity checking"""
 
     def _parse_iostime(self, iso8601time: str) -> datetime:
-        """parse iso 8601 fomated timestamp to `datetime` instance
+        """Parse iso 8601 fomated timestamp to `datetime` instance
 
         internal use for parsing ETA data timestamp
 
@@ -81,63 +85,68 @@ class EtaProcessor(ABC):
 
 class KmbEta(EtaProcessor):
 
-    def etas(self) -> dict:
-        apidata = asyncio.run(self.raw_etas())
-        timestamp = self._parse_iostime(apidata['generated_timestamp'])
-        lang_code = super().details.lang_code()
-        output = []
+    _locale_map = {enums.Locale.TC: "tc", enums.Locale.EN: "en"}
 
-        for stop in apidata['data']:
+    def etas(self) -> dict:
+        response = asyncio.run(self.raw_etas())
+        timestamp = self._parse_iostime(response['generated_timestamp'])
+        lang_code = self._locale_map[self.route_entry.lang]
+        etas = []
+
+        for stop in response['data']:
             if (stop["seq"] != super().details.stop_seq()
-                    or stop["dir"] != super().eta_entry.direction[0].upper()):
+                    or stop["dir"] != super().route_entry.direction[0].upper()):
                 continue
             elif stop["eta"] is None:
                 if stop["rmk_" + lang_code] == "":
                     raise exceptions.EndOfService
                 raise exceptions.ErrorReturns(stop["rmk_" + lang_code])
             eta_dt = datetime.datetime.fromisoformat(stop["eta"])
-            output.append({
-                'co': stop["co"],
-                'second': int((eta_dt - timestamp).total_seconds()),
-                'minute': int((eta_dt - timestamp).total_seconds() / 60),
-                'time': datetime.datetime.strftime(eta_dt, "%H:%M"),
-                'destination': stop[f'dest_{lang_code}'],
-                'remark': stop[f'rmk_{lang_code}']
-            })
 
-            if len(output) == 3:
+            etas.append(models.Eta(
+                company=enums.Company[stop['co']],
+                destination=stop[f'dest_{lang_code}'],
+                is_arriving=False,
+                time=self.dt_tostring(eta_dt),
+                minute=int((eta_dt - timestamp).total_seconds() / 60),
+                second=int((eta_dt - timestamp).total_seconds()),
+                remark=stop[f'rmk_{lang_code}']
+            ))
+
+            if len(etas) == 3:
                 #  NOTE: the number of ETA entry form API at the same stop may not be 3 every time.
                 #  KMB only provide at most 3 upcoming ETAs
                 #  (e.g. N routes may provide only 2)
                 break
 
-        if len(output) == 0:
+        if len(etas) == 0:
             raise exceptions.EmptyDataError
-        return output
+        return etas
 
-    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
-        apidata = await api.kmb_eta(
-            super().eta_entry.name, super().eta_entry.service_type)
+        response = await api.kmb_eta(
+            super().route_entry.name, super().route_entry.service_type)
 
-        if len(apidata) == 0:
+        if len(response) == 0:
             raise exceptions.APIError
-        elif apidata.get('data') is None:
+        elif response.get('data') is None:
             raise exceptions.EmptyDataError
         else:
-            return apidata
+            return response
 
 
 class MtrBusEta(EtaProcessor):
 
-    def etas(self):
-        apidata = asyncio.run(self.raw_etas())
-        timestamp = datetime.datetime.strptime(
-            apidata["routeStatusTime"], "%Y/%m/%d %H:%M")
-        output = []
+    _locale_map = {enums.Locale.TC: "zh", enums.Locale.EN: "en"}
 
-        for stop in apidata["busStop"]:
-            if stop["busStopId"] != super().eta_entry.stop:
+    def etas(self):
+        response = asyncio.run(self.raw_etas())
+        timestamp = datetime.datetime.strptime(
+            response["routeStatusTime"], "%Y/%m/%d %H:%M")
+        etas = []
+
+        for stop in response["busStop"]:
+            if stop["busStopId"] != super().route_entry.stop:
                 continue
 
             for eta in stop["bus"]:
@@ -149,29 +158,31 @@ class MtrBusEta(EtaProcessor):
                 if (any(char.isdigit() for char in eta[f'{time_ref}TimeText'])):
                     #  eta TimeText has numbers (e.g. 3 分鐘/3 Minutes)
                     eta_sec = int(eta[f'{time_ref}TimeInSecond'])
-                    output.append({
-                        'second': eta_sec,
-                        'minute': eta[f'{time_ref}TimeText'].split(" ")[0],
-                        'time': datetime.datetime.strftime(
-                            timestamp + datetime.timedelta(seconds=eta_sec), "%H:%M"),
-                        'destination': super().details.destination(),
-                        'remark': ""
-                    })
+                    etas.append(models.Eta(
+                        company=enums.Company.MTRBUS,
+                        destination=super().details.destination(),
+                        is_arriving=False,
+                        time=self.dt_tostring(
+                            timestamp + datetime.timedelta(seconds=eta_sec)),
+                        minute=eta[f'{time_ref}TimeText'].split(" ")[0],
+                        second=eta_sec,
+                    ))
                 else:
-                    output.append({
-                        'second': None,
-                        'minute': None,
-                        'time': None,
-                        'destination': super().details.destination(),
-                        'remark': eta[f'{time_ref}TimeText']
-                    })
+                    etas.append(models.Eta(
+                        company=enums.Company.MTRBUS,
+                        destination=super().details.destination(),
+                        is_arriving=False,
+                        time=self.dt_tostring(datetime.datetime.now()),
+                        minute=0,
+                        second=0,
+                        remark=eta[f'{time_ref}TimeText']
+                    ))
             break
 
-        if len(output) == 0:
+        if len(etas) == 0:
             raise exceptions.EmptyDataError
-        return output
+        return etas
 
-    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
         #  NOTE: Currently, "status" from API always is returned 0
         #    possible due to the service is in testing stage.
@@ -180,33 +191,35 @@ class MtrBusEta(EtaProcessor):
         #      raise APIError
         #  elif data["routeStatusRemarkTitle"] == "停止服務":
         #      raise EndOfServices
-        apidata = await api.mtr_bus_eta(
-            super().eta_entry.name, super().details.lang_code())
+        response = await api.mtr_bus_eta(
+            super().route_entry.name, self._locale_map[self.route_entry.lang])
 
-        if len(apidata) == 0:
+        if len(response) == 0:
             raise exceptions.APIError
-        elif apidata["routeStatusRemarkTitle"] in ("\u505c\u6b62\u670d\u52d9", "Non-service hours"):
+        elif response["routeStatusRemarkTitle"] in ("\u505c\u6b62\u670d\u52d9", "Non-service hours"):
             raise exceptions.EndOfService
-        elif apidata["routeStatusRemarkTitle"] is not None:
-            raise exceptions.ErrorReturns(apidata["routeStatusRemarkTitle"])
+        elif response["routeStatusRemarkTitle"] is not None:
+            raise exceptions.ErrorReturns(response["routeStatusRemarkTitle"])
         else:
-            return apidata
+            return response
 
 
 class MtrLrtEta(EtaProcessor):
 
-    def etas(self):
-        apidata = asyncio.run(self.raw_etas())
-        timestamp = self._parse_iostime(apidata['system_time'])
-        lang_code = super().details.lang_code()
-        output = []
+    _locale_map = {enums.Locale.TC: "ch", enums.Locale.EN: "en"}
 
-        for platform in apidata['platform_list']:
+    def etas(self):
+        response = asyncio.run(self.raw_etas())
+        timestamp = self._parse_iostime(response['system_time'])
+        lang_code = self._locale_map[self.route_entry.lang]
+        etas = []
+
+        for platform in response['platform_list']:
             # the platform may ended service
             for eta in platform.get("route_list", []):
                 # 751P have no destination and eta
                 destination = eta.get(f'dest_{lang_code}')
-                if (eta['route_no'] != super().eta_entry.name
+                if (eta['route_no'] != super().route_entry.name
                         or destination != super().details.destination()):
                     continue
 
@@ -215,135 +228,205 @@ class MtrLrtEta(EtaProcessor):
                 if eta_min.isnumeric():
                     eta_min = int(eta_min)
                     eta_dt = timestamp + datetime.timedelta(minutes=eta_min)
-                    output.append({
-                        'second': int(
+
+                    etas.append(models.Eta(
+                        company=enums.Company.MTRLRT,
+                        destination=destination,
+                        is_arriving=False,
+                        time=self.dt_tostring(eta_dt),
+                        minute=eta_min,
+                        second=int(
                             (eta_dt - datetime.datetime.now(timestamp.tzinfo)).total_seconds()),
-                        'minute': eta_min,
-                        'time': datetime.datetime.strftime(eta_dt, "%H:%M"),
-                        'destination': destination,
-                        'remark': ""
-                    })
+                        extras=models.Eta.ExtraInfo(
+                            platform=platform['platform_id'],
+                            car_length=eta['train_length']
+                        )
+                    ))
                 else:
-                    output.append({
-                        'second': None,
-                        'minute': None,
-                        'time': None,
-                        'destination': destination,
-                        'remark': eta_min
-                    })
+                    etas.append(models.Eta(
+                        company=enums.Company.MTRLRT,
+                        destination=destination,
+                        is_arriving=True,
+                        time=self.dt_tostring(datetime.datetime.now()),
+                        minute=0,
+                        second=0,
+                        remark=eta_min,
+                        extras=models.Eta.ExtraInfo(
+                            platform=platform['platform_id'],
+                            car_length=eta['train_length']
+                        )
+                    ))
 
-        if len(output) == 0:
+        if len(etas) == 0:
             raise exceptions.EmptyDataError
-        return output
+        return etas
 
-    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
-        apidata = await api.mtr_lrt_eta(super().eta_entry.stop)
+        response = await api.mtr_lrt_eta(super().route_entry.stop)
 
-        if len(apidata) == 0 or apidata.get('status', 0) == 0:
+        if len(response) == 0 or response.get('status', 0) == 0:
             raise exceptions.APIError
         elif all(platform.get("end_service_status", False)
-                 for platform in apidata['platform_list']):
+                 for platform in response['platform_list']):
             raise exceptions.EndOfService
         else:
-            return apidata
+            return response
 
 
 class MtrTrainEta(EtaProcessor):
 
-    __dir = {"inbound": "UP", "outbound": "DOWN"}
+    _bound_map = {"inbound": "UP", "outbound": "DOWN"}
 
     def __init__(self, detail: facades.RouteDetails) -> None:
         super().__init__(detail)
-        self.linename = super().eta_entry.name.split("-")[0]
-        self.direction = self.__dir[super().eta_entry.direction]
+        self.linename = super().route_entry.name.split("-")[0]
+        self.direction = self._bound_map[super().route_entry.direction]
 
     def etas(self) -> dict:
-        apidata = asyncio.run(self.raw_etas())
-        timestamp = self._parse_iostime(apidata["curr_time"])
-        output = []
+        response = asyncio.run(self.raw_etas())
+        timestamp = self._parse_iostime(response["curr_time"])
+        etas = []
 
-        etadata = apidata['data'][
-            f'{self.linename}-{super().eta_entry.stop}'].get(
+        etadata = response['data'][
+            f'{self.linename}-{super().route_entry.stop}'].get(
                 self.direction, [])
         for entry in etadata:
             eta_dt = datetime.datetime.fromisoformat(entry["time"])
-            output.append({
-                'second': int((eta_dt - timestamp).total_seconds()),
-                'minute': int((eta_dt - timestamp).total_seconds() / 60),
-                'time': datetime.datetime.strftime(eta_dt, "%H:%M"),
-                'destination': super().details.rt_stop_name(entry['dest']),
-                'remark': ""
-            })
 
-        if len(output) == 0:
+            etas.append(models.Eta(
+                company=enums.Company.MTRTRAIN,
+                destination=super().details.rt_stop_name(
+                    entry['dest']),
+                is_arriving=False,
+                time=self.dt_tostring(eta_dt),
+                minute=int((eta_dt - timestamp).total_seconds() / 60),
+                second=int((eta_dt - timestamp).total_seconds()),
+                extras=models.Eta.ExtraInfo(platform=entry['plat'])
+            ))
+
+        if len(etas) == 0:
             raise exceptions.EmptyDataError
-        return output
+        return etas
 
-    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
-        apidata = await api.mtr_train_eta(
-            self.linename, super().eta_entry.stop, super().eta_entry.lang)
+        response = await api.mtr_train_eta(
+            self.linename, super().route_entry.stop, super().route_entry.lang)
 
-        if len(apidata) == 0:
+        if len(response) == 0:
             raise exceptions.APIError
-        elif apidata.get('status', 0) == 0:
-            if "suspended" in apidata['message']:
+        elif response.get('status', 0) == 0:
+            if "suspended" in response['message']:
                 raise exceptions.StationClosed
-            elif apidata.get('url') is not None:
+            elif response.get('url') is not None:
                 raise exceptions.AbnormalService
             else:
                 raise exceptions.APIError
-        elif apidata['data'][f'{self.linename}-{super().eta_entry.stop}'].get(
+        elif response['data'][f'{self.linename}-{super().route_entry.stop}'].get(
                 self.direction) is None:
             raise exceptions.EmptyDataError
         else:
-            return apidata
+            return response
 
 
 class BravoBusEta(EtaProcessor):
 
-    def etas(self) -> dict:
-        apidata = asyncio.run(self.raw_etas())
-        timestamp = self._parse_iostime(apidata['generated_timestamp'])
-        lang_code = super().details.lang_code()
-        output = []
+    _locale_map = {enums.Locale.TC: "tc", enums.Locale.EN: "en"}
 
-        for eta in apidata['data']:
-            if eta['dir'] != super().eta_entry.direction[0].upper():
+    def etas(self) -> dict:
+        response = asyncio.run(self.raw_etas())
+        timestamp = self._parse_iostime(response['generated_timestamp'])
+        lang_code = self._locale_map[self.route_entry.lang]
+        etas = []
+
+        for eta in response['data']:
+            if eta['dir'] != super().route_entry.direction[0].upper():
                 continue
-            elif eta['eta'] == "":  # 九巴時段
-                output.append({
-                    'co': eta['co'],
-                    'second': None,
-                    'minute': None,
-                    'time': None,
-                    'destination': eta[f"dest_{lang_code}"],
-                    'remark': eta[f"rmk_{lang_code}"]
-                })
+            elif eta['eta'] == "":
+                # 九巴時段
+                etas.append(models.Eta(
+                    company=enums.Company[eta['co']],
+                    destination=eta[f"dest_{lang_code}"],
+                    is_arriving=False,
+                    time=None,
+                    minute=None,
+                    second=None,
+                    remark=eta[f"rmk_{lang_code}"]
+                ))
             else:
                 eta_dt = datetime.datetime.fromisoformat(eta['eta'])
-                output.append({
-                    'co': eta['co'],
-                    'second': int((eta_dt - timestamp).total_seconds()),
-                    'minute': int((eta_dt - timestamp).total_seconds() / 60),
-                    'time': datetime.datetime.strftime(eta_dt, "%H:%M"),
-                    'destination': eta[f"dest_{lang_code}"],
-                    'remark': eta[f"rmk_{lang_code}"]
-                })
 
-        if len(output) == 0:
+                etas.append(models.Eta(
+                    company=enums.Company[eta['co']],
+                    destination=eta[f"dest_{lang_code}"],
+                    is_arriving=False,
+                    time=self.dt_tostring(eta_dt),
+                    minute=int((eta_dt - timestamp).total_seconds() / 60),
+                    second=int((eta_dt - timestamp).total_seconds()),
+                    remark=eta[f"rmk_{lang_code}"]
+                ))
+
+        if len(etas) == 0:
             raise exceptions.EmptyDataError
-        return output
+        return etas
 
-    @exceptions.aioex_to_etex
     async def raw_etas(self) -> dict[str | int]:
-        apidata = await api.bravobus_eta(
-            super().eta_entry.co, super().eta_entry.stop, super().eta_entry.name)
+        response = await api.bravobus_eta(
+            super().route_entry.company.value, super().route_entry.stop, super().route_entry.name)
 
-        if len(apidata) == 0 or apidata.get('data') is None:
+        if len(response) == 0 or response.get('data') is None:
             raise exceptions.APIError
-        elif len(apidata['data']) == 0:
+        elif len(response['data']) == 0:
             raise exceptions.EmptyDataError
         else:
-            return apidata
+            return response
+
+
+if __name__ == "__main__":
+    import os
+    import pprint
+
+    import factories
+
+    factory = factories.EtaFactory(os.path.join(
+        os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "caches", "transport_data"),
+        True
+    )
+
+    mtb_entry = entry = models.RouteEntry(
+        enums.Company.MTRBUS,
+        "K76",
+        enums.Direction.INBOUND,
+        "K76-D020",
+        None,
+        enums.Locale.TC
+    )
+
+    lrt_entry = models.RouteEntry(
+        enums.Company.MTRLRT,
+        "705",
+        enums.Direction.INBOUND,
+        "510",
+        "1",
+        enums.Locale.TC
+    )
+
+    lrt_entry = models.RouteEntry(
+        enums.Company.MTRTRAIN,
+        "TML",
+        enums.Direction.INBOUND,
+        "TIS",
+        None,
+        enums.Locale.TC
+    )
+
+    ctb_entry = models.RouteEntry(
+        enums.Company.CTB,
+        "948",
+        enums.Direction.INBOUND,
+        "001193",
+        "1",
+        enums.Locale.TC
+    )
+
+    pprint.pprint(factory.create_eta_processor(ctb_entry).etas())

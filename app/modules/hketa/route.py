@@ -22,7 +22,7 @@ class Route(ABC):
 
     _entry: models.RouteEntry
     _provider: company_data.CompanyData
-    _data: dict[str, dict]
+    _data: dict[str, models.RouteInfo.Stop]
     """Route details (stop name, ID)"""
 
     @property
@@ -30,7 +30,7 @@ class Route(ABC):
         return self._entry
 
     @property
-    def data(self) -> dict:
+    def data(self) -> dict[str, models.RouteInfo.Stop]:
         """Raw data of the route
         """
         return self._data
@@ -38,9 +38,12 @@ class Route(ABC):
     def __init__(self, entry: models.RouteEntry, company_data: company_data.CompanyData) -> None:
         self._entry = entry
         self._provider = company_data
-        self._data = self._provider.stop_list(self._entry)['data']
 
-        if self._data.get(self._entry.stop) is None:
+        stop_list = tuple(self._provider.stop_list(self._entry))
+        self._data = {stop: data for stop, data in zip(
+            (stop.stop_code for stop in stop_list), stop_list)}
+
+        if (self._entry.stop not in self._data.keys()):
             raise exceptions.RouteNotExist
 
     def route_name(self) -> str:
@@ -49,76 +52,73 @@ class Route(ABC):
 
     def comanpy(self) -> str:
         """Get the operating company name of the route"""
-        return self._entry.company.description(self._name_key())
+        return self._entry.company.description(self.route_entry.lang)
 
     @abstractmethod
     def stop_name(self) -> str:
         """Get the stop name of the route"""
 
     @abstractmethod
-    def rt_stop_name(self, stop_id: str) -> str:
-        """Get the stop name by `stop_id`"""
+    def rt_stop_name(self, stop_code: str) -> str:
+        """Get the stop name by `stop_code`"""
 
     @abstractmethod
     def stop_seq(self) -> int:
         """Get the stop sequence of the route"""
-
-    def _name_key(self) -> str:
-        return f"name_{self._entry.lang.value}"
 
 
 class KMBRoute(Route):
 
     def stop_name(self):
         try:
-            return super().data[self._entry.stop][self._name_key()]
+            return super().data[self._entry.stop].name[self.route_entry.lang]
         except KeyError:
             return self._entry.stop
 
-    def rt_stop_name(self, stop_id: str) -> str:
+    def rt_stop_name(self, stop_code: str) -> str:
         try:
-            return super().data[stop_id][self._name_key()]
+            return super().data[stop_code].name[self.route_entry.lang]
         except KeyError:
             return "-----"
 
     def stop_seq(self):
-        return super().data[self._entry.stop]['seq']
+        return super().data[self._entry.stop].seq
 
 
 class MTRBusRoute(Route):
 
     def stop_name(self) -> str:
         try:
-            return super().data[self._entry.stop][self._name_key()]
+            return super().data[self._entry.stop].name[self.route_entry.lang]
         except KeyError:
             return self._entry.stop
 
     def rt_stop_name(self, stop_id: str) -> str:
         try:
-            return super().data[stop_id][self._name_key()]
+            return super().data[stop_id].name[self.route_entry.lang]
         except KeyError:
             return "-----"
 
     def stop_seq(self) -> int:
-        return super().data[self._entry.stop]['seq']
+        return super().data[self._entry.stop].seq
 
 
 class MTRLrtRoute(Route):
 
     def stop_name(self) -> str:
         try:
-            return super().data[self._entry.stop][self._name_key()]
+            return super().data[self._entry.stop].name[self.route_entry.lang]
         except KeyError:
             return self._entry.stop
 
-    def rt_stop_name(self, stop_id: str) -> str:
+    def rt_stop_name(self, stop_code: str) -> str:
         try:
-            return super().data[stop_id][self._name_key()]
+            return super().data[stop_code].name[self.route_entry.lang]
         except KeyError:
             return "-----"
 
     def stop_seq(self):
-        return super().data[self._entry.stop]['seq']
+        return super().data[self._entry.stop].seq
 
 
 class MTRTrainRoute(Route):
@@ -141,42 +141,42 @@ class MTRTrainRoute(Route):
 
     def route_name(self) -> str:
         try:
-            return self.__rt_names[self._entry.name][self._name_key()]
+            return self.__rt_names[self._entry.name].name[self.route_entry.lang]
         except KeyError:
             return self._entry.name
 
     def stop_name(self) -> str:
         try:
-            return super().data[self._entry.stop][self._name_key()]
+            return super().data[self._entry.stop].name[self.route_entry.lang]
         except KeyError:
             return self._entry.stop
 
-    def rt_stop_name(self, stop_id: str) -> str:
+    def rt_stop_name(self, stop_code: str) -> str:
         try:
-            return super().data[stop_id][self._name_key()]
+            return super().data[stop_code].name[self.route_entry.lang]
         except KeyError:
             return "-----"
 
     def stop_seq(self):
-        return super().data[self._entry.stop]['seq']
+        return super().data[self._entry.stop].seq
 
 
 class BravoBusRoute(Route):
 
     def stop_name(self):
         try:
-            return super().data[self._entry.stop][self._name_key()]
+            return super().data[self._entry.stop].name[self.route_entry.lang]
         except KeyError:
             return self._entry.stop
 
-    def rt_stop_name(self, stop_id: str) -> str:
+    def rt_stop_name(self, stop_code: str) -> str:
         try:
-            return super().data[stop_id][self._name_key()]
+            return super().data[stop_code].name[self.route_entry.lang]
         except KeyError:
             return "-----"
 
     def stop_seq(self):
-        return super().data[self._entry.stop]['seq']
+        return super().data[self._entry.stop].seq
 
 
 if __name__ == "__main__":
