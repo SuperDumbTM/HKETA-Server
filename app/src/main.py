@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import eta, route
+from app.src.routers import eta, route
 
 app = FastAPI(debug=True)
 

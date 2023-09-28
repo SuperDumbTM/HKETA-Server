@@ -1,7 +1,7 @@
 from typing import Any, Optional
 from pydantic import BaseModel
 
-from app.enums import status_code
+from app.src.enums import status_code
 
 
 class StdResponse(BaseModel):
@@ -20,5 +20,5 @@ class StdResponse(BaseModel):
     @staticmethod
     def fail(message: str = "Failed.",
              data: Optional[dict[str, Any]] = None,
-             code: Optional[str] = status_code.StatusCode.ERROR) -> "StdResponse":
+             code: Optional[status_code.StatusCode] = status_code.StatusCode.ERROR) -> "StdResponse":
         return StdResponse(status=False, message=message, data=data, code=code)

@@ -12,7 +12,7 @@ from typing import Any, Iterable
 import aiohttp
 
 try:
-    from app.modules.hketa import api, enums, exceptions, models
+    from app.src.modules.hketa import api, enums, exceptions, models
 except ImportError:
     import api
     import enums
@@ -529,7 +529,7 @@ class MTRBusData(CompanyData):
                         'service_type': None,
                         'orig': {
                             'stop_code': row[3],
-                            'seq': row[2],
+                            'seq': int(row[2].strip(".00")),
                             'name': {enums.Locale.EN: row[7], enums.Locale.TC: row[6]}
                         },
                         'dest': {}
@@ -539,7 +539,7 @@ class MTRBusData(CompanyData):
                 # destination
                 route_list[row[0]][direction][0]['dest'] = {
                     'stop_code': row[3],
-                    'seq': row[2],
+                    'seq': int(row[2].strip(".00")),
                     'name': {enums.Locale.EN: row[7], enums.Locale.TC: row[6]}
                 }
         return route_list

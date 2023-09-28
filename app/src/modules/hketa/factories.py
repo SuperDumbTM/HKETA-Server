@@ -1,8 +1,8 @@
 import os
 
 try:
-    from app.modules.hketa import (company_data, enums, eta_processor, facades,
-                                   models, route, transport)
+    from app.src.modules.hketa import (company_data, enums, eta_processor, facades,
+                                       models, route, transport)
 except (ImportError, ModuleNotFoundError):
     import company_data
     import enums

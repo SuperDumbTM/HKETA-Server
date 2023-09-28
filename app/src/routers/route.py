@@ -2,15 +2,15 @@ from typing import Optional
 
 from fastapi import APIRouter
 
-from app import definition
-from app.models import std_response
-from app.modules.hketa import enums, models
+from app.src import definition
+from app.src.models import std_response
+from app.src.modules import hketa
 
 router = APIRouter()
 
 
 @router.get("/{company}/routes")
-def get_route_list(company: enums.Company,
+def get_route_list(company: hketa.enums.Company,
                    route: Optional[str] = None,
                    service_type: Optional[str | int] = None,
                    terminal_name: Optional[str] = None,
@@ -46,10 +46,11 @@ def get_route_list(company: enums.Company,
 
 
 @router.get("/{company}/{route_name}/{direction}/stops")
-def get_stop_list(company: enums.Company,
+def get_stop_list(company: hketa.enums.Company,
                   route_name: str,
-                  direction: enums.Direction,
+                  direction: hketa.enums.Direction,
                   service_type: Optional[str | int] = None) -> std_response.StdResponse:
+
     return std_response.StdResponse.success(
         data={
             'company': company,
@@ -57,6 +58,8 @@ def get_stop_list(company: enums.Company,
             'direction': direction,
             'service_type': service_type,
             'stops': definition.ETA_FACTORY.create_company_data(company).stop_list(
-                models.RouteEntry(company, route_name, direction, "", service_type, enums.Locale.TC))
+                hketa.models.RouteEntry(
+                    company, route_name, direction, "", service_type, hketa.enums.Locale.TC
+                ))
         }
     )

@@ -1,7 +1,7 @@
 # pylint: disable=redefined-outer-name,
 
 try:
-    from app.modules.hketa import route, transport
+    from app.src.modules.hketa import route, transport
 except (ImportError, ModuleNotFoundError):
     import route
     import transport

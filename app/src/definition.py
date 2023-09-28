@@ -1,7 +1,7 @@
 import os
 from typing import Final
 
-from app.modules.hketa import factories
+from app.src.modules.hketa import factories
 
 
 ROUTE_DATA_PATH: Final[os.PathLike] = os.path.join(

@@ -6,7 +6,7 @@ from pydantic import Field
 from pydantic.dataclasses import dataclass
 
 try:
-    from app.modules.hketa import enums
+    from app.src.modules.hketa import enums
 except (ImportError, ModuleNotFoundError):
     import enums
 

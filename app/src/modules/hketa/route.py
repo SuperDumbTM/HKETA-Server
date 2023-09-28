@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 try:
-    from app.modules.hketa import company_data, enums, exceptions, models
+    from app.src.modules.hketa import company_data, enums, exceptions, models
 except (ImportError, ModuleNotFoundError):
     import company_data
     import enums

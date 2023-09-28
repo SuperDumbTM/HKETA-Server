@@ -3,7 +3,7 @@ import datetime
 from abc import ABC, abstractmethod
 
 try:
-    from app.modules.hketa import api, enums, exceptions, facades, models
+    from app.src.modules.hketa import api, enums, exceptions, facades, models
 except (ImportError, ModuleNotFoundError):
     import api
     import enums
@@ -119,8 +119,6 @@ class KmbEta(EtaProcessor):
                 #  (e.g. N routes may provide only 2)
                 break
 
-        if len(etas) == 0:
-            raise exceptions.EmptyDataError
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
@@ -179,8 +177,6 @@ class MtrBusEta(EtaProcessor):
                     ))
             break
 
-        if len(etas) == 0:
-            raise exceptions.EmptyDataError
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
@@ -257,8 +253,6 @@ class MtrLrtEta(EtaProcessor):
                         )
                     ))
 
-        if len(etas) == 0:
-            raise exceptions.EmptyDataError
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
@@ -304,8 +298,6 @@ class MtrTrainEta(EtaProcessor):
                 extras=models.Eta.ExtraInfo(platform=entry['plat'])
             ))
 
-        if len(etas) == 0:
-            raise exceptions.EmptyDataError
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
@@ -365,8 +357,6 @@ class BravoBusEta(EtaProcessor):
                     remark=eta[f"rmk_{lang_code}"]
                 ))
 
-        if len(etas) == 0:
-            raise exceptions.EmptyDataError
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
@@ -429,4 +419,4 @@ if __name__ == "__main__":
         enums.Locale.TC
     )
 
-    pprint.pprint(factory.create_eta_processor(ctb_entry).etas())
+    pprint.pprint(factory.create_eta_processor(mtb_entry).etas())

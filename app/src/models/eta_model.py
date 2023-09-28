@@ -1,9 +1,9 @@
 from typing import Optional
 from pydantic import BaseModel
 
-from app.enums.company import Company
-from app.enums.direction import Direction
-from app.enums.language import Language
+from app.src.enums.company import Company
+from app.src.enums.direction import Direction
+from app.src.enums.language import Language
 
 
 class EtaModel(BaseModel):
