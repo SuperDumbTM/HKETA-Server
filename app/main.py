@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routers import eta, route
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

@@ -55,7 +55,7 @@ class Transport(ABC):
 
     def __init__(self, route_data: company_data.CompanyData) -> None:
         self._provider = route_data
-        self._data = self._provider.routes()['data']
+        self._data = self._provider.route_list()['data']
 
     @abstractmethod
     def logo(self) -> io.BufferedReader:

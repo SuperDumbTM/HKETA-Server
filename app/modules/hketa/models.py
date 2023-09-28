@@ -35,9 +35,11 @@ class RouteEntry:
         }
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class RouteInfo:
 
+    company: enums.Company
+    name: str
     inbound: Optional[list["Detail"]]
     outbound: Optional[list["Detail"]]
 

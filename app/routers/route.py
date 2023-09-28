@@ -16,15 +16,15 @@ def get_route_list(company: enums.Company,
                    ) -> std_response.StdResponse:
     route_list = (definitation.ETA_FACTORY
                   .create_company_data(company)
-                  .routes()['data'])
+                  .route_list())
 
     for route_name in route_list.keys():
-        if ('inbound' in route_list[route_name]):
-            route_list[route_name]['inbound'] = [inbound for inbound in route_list[route_name]['inbound']
-                                                 if inbound['service_type'] == service_type]
-        if ('outbound' in route_list[route_name]):
-            route_list[route_name]['outbound'] = [inbound for inbound in route_list[route_name]['outbound']
-                                                  if inbound['service_type'] == service_type]
+        if (route_list[route_name].inbound is not None):
+            route_list[route_name].inbound = [inbound for inbound in route_list[route_name].inbound
+                                              if inbound.service_type == service_type]
+        if (route_list[route_name].outbound is not None):
+            route_list[route_name].outbound = [inbound for inbound in route_list[route_name].inbound
+                                               if inbound.service_type == service_type]
 
     return std_response.StdResponse.success(
         data={

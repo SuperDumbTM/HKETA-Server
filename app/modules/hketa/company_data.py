@@ -54,6 +54,11 @@ class CompanyData(ABC):
     """Root directory of the respective class (company/transportation)."""
 
     @property
+    @abstractmethod
+    def company(self) -> enums.Company:
+        pass
+
+    @property
     def routes_json(self) -> os.PathLike:
         """Path to \"routes\" data file name"""
         return os.path.join(self._root, "routes.json")
@@ -157,7 +162,7 @@ class CompanyData(ABC):
 
         if self.is_outdated(fpath):
             logging.info(
-                "%s local route list is outdated, refetching...", entry.name)
+                "%s stop list cache is outdated, updating...", entry.name)
 
             stops = asyncio.run(self.fetch_stop_list(entry))
             self._put_data_file(
@@ -171,25 +176,65 @@ class CompanyData(ABC):
 
         return (models.RouteInfo.Stop(**stop) for stop in stops)
 
-    def routes(self) -> dict[str, dict[str, Any]]:
+    def route_list(self) -> Mapping[str, models.RouteInfo]:
         """Retrive all route list and data operating by the operator. Create/update when necessary
         """
         if not self.is_store:
             logging.info(
                 "retiving %s routes data (no store is set)", type(self).__name__)
-            return asyncio.run(self.fetch_route_list())
+            routes = self.fetch_route_list()
         elif self.is_outdated(self.routes_json):
             logging.info(
-                "%s local routes data is outdated or not exists, updating...", type(self).__name__)
+                "%s route list cache is outdated or not exists, updating...", type(self).__name__)
 
-            data = asyncio.run(self.fetch_route_list())
-            self._put_data_file(self.routes_json, data)
-            return data
+            routes = asyncio.run(self.fetch_route_list())
+            self._put_data_file(self.routes_json, routes)
         else:
             with open(self.routes_json, "r", encoding="utf-8") as f:
-                logging.debug("reading %s route data from %s",
-                              type(self).__name__, self.routes_json)
-                return json.load(f)
+                logging.debug(
+                    "Loading route list stop list from %s", self.routes_json)
+                routes = json.load(f)['data']
+
+        return {
+            route: models.RouteInfo(
+                company=self.company,
+                name=route,
+                inbound=[
+                    models.RouteInfo.Detail(
+                        service_type=rt_type['service_type'],
+                        orig=models.RouteInfo.Stop(
+                            stop_code=rt_type['orig']['stop_code'],
+                            seq=rt_type['orig']['seq'],
+                            name={
+                                enums.Locale[locale.upper()]: text for locale, text in rt_type['orig']['name'].items()}
+                        ),
+                        dest=models.RouteInfo.Stop(
+                            stop_code=rt_type['dest']['stop_code'],
+                            seq=rt_type['dest']['seq'],
+                            name={
+                                enums.Locale[locale.upper()]: text for locale, text in rt_type['dest']['name'].items()}
+                        ) if rt_type['dest'] else None
+                    ) for rt_type in direction['inbound']
+                ],
+                outbound=[
+                    models.RouteInfo.Detail(
+                        service_type=rt_type['service_type'],
+                        orig=models.RouteInfo.Stop(
+                            stop_code=rt_type['orig']['stop_code'],
+                            seq=rt_type['orig']['seq'],
+                            name={
+                                enums.Locale[locale.upper()]: text for locale, text in rt_type['orig']['name'].items()}
+                        ),
+                        dest=models.RouteInfo.Stop(
+                            stop_code=rt_type['dest']['stop_code'],
+                            seq=rt_type['dest']['seq'],
+                            name={
+                                enums.Locale[locale.upper()]: text for locale, text in rt_type['orig']['name'].items()}
+                        )
+                    ) for rt_type in direction['outbound']
+                ]
+            ) for route, direction in routes.items()
+        }
 
     def route_fname(self, entry: models.RouteEntry) -> str:
         """Get file name of target `entry` stop data
@@ -223,6 +268,8 @@ class CompanyData(ABC):
 
 
 class KMBData(CompanyData):
+
+    company = enums.Company.KMB
 
     _direction = {
         'O': enums.Direction.OUTBOUND.value,
@@ -312,6 +359,8 @@ class KMBData(CompanyData):
 
 class MTRLrtData(CompanyData):
 
+    company = enums.Company.MTRLRT
+
     _direction = {
         enums.Direction.OUTBOUND.value: "1",
         enums.Direction.INBOUND.value: "2",
@@ -368,6 +417,8 @@ class MTRLrtData(CompanyData):
 
 class MTRTrainData(CompanyData):
 
+    company = enums.Company.MTRTRAIN
+
     _direction = {
         'DT': enums.Direction.DOWNLINK.value,
         'UT': enums.Direction.UPLINK.value,
@@ -390,11 +441,12 @@ class MTRTrainData(CompanyData):
             if not any(row):  # skip empty row
                 continue
 
-            direction, _, type_ = row[1].partition("-")
-            if type_:  # route with multiple origin/destination
-                direction, type_ = type_, direction  # e.g. LMC-DT
+            direction, _, rt_type = row[1].partition("-")
+            if rt_type:
+                # route with multiple origin/destination
+                direction, rt_type = rt_type, direction  # e.g. LMC-DT
                 # make a "new line" for these type of route
-                row[0] += f"-{type_}"
+                row[0] += f"-{rt_type}"
             direction = self._direction[direction]
             route_list.setdefault(row[0], {'inbound': [], 'outbound': []})
 
@@ -406,7 +458,7 @@ class MTRTrainData(CompanyData):
                         'orig': {
                             'stop_code': row[2],
                             'seq': int(row[6].strip(".00")),
-                            'name': {enums.Locale.EN: row[5], enums.Locale.TC: row[4]}
+                            'name': {enums.Locale.EN.value: row[5], enums.Locale.TC.value: row[4]}
                         },
                         'dest': {}
                     }
@@ -416,7 +468,7 @@ class MTRTrainData(CompanyData):
                 route_list[row[0]][direction][0]['dest'] = {
                     'stop_code': row[2],
                     'seq': int(row[6].strip(".00")),
-                    'name': {enums.Locale.EN: row[5], enums.Locale.TC: row[4]}
+                    'name': {enums.Locale.EN.value: row[5], enums.Locale.TC.value: row[4]}
                 }
         return route_list
 
@@ -424,15 +476,15 @@ class MTRTrainData(CompanyData):
         apidata = csv.reader(await api.mtr_train_route_stop_list())
 
         if "-" in entry.name:
-            # route with multiple origin/destination
-            rtname, type_ = entry.name.split("-")
+            # route with multiple origin/destination (e.g. EAL-LMC)
+            rt_name, rt_type = entry.name.split("-")
             stops = [stop for stop in apidata
-                     if stop[0] == rtname
-                     and type_ in stop[1]]
+                     if stop[0] == rt_name and rt_type in stop[1]]
         else:
             stops = [stop for stop in apidata
                      if stop[0] == str(entry.name)
                      and self._direction[stop[1].split("-")[-1]] == entry.direction]
+            # stop[1] (direction) could contain not just the direction (e.g. LMC-DT)
 
         if len(stops) == 0:
             raise exceptions.RouteNotExist()
@@ -444,6 +496,8 @@ class MTRTrainData(CompanyData):
 
 
 class MTRBusData(CompanyData):
+
+    company = enums.Company.MTRBUS
 
     _direction = {
         'O': enums.Direction.OUTBOUND.value,
@@ -507,6 +561,8 @@ class MTRBusData(CompanyData):
 
 
 class CityBusData(CompanyData):
+
+    company = enums.Company.CTB
 
     def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         super().__init__(os.path.join(root, "ctb"), store_local, threshold)
@@ -588,6 +644,7 @@ class CityBusData(CompanyData):
 
 
 if __name__ == "__main__":
+    import pprint
     entry_ = models.RouteEntry(
         enums.Company.MTRLRT,
         "EAL-LMC",
@@ -595,5 +652,7 @@ if __name__ == "__main__":
         "223DAE7E925E3BB9",
         "1",
         enums.Locale.TC)
-    cp_data = MTRTrainData("caches\\transport_data", True)
-    print(*list(cp_data.stop_list(entry_)), sep="\n")
+    cp_data = MTRTrainData("caches\\transport_data", True, 30)
+
+    pprint.pprint(list(cp_data.stop_list(entry_)))
+    # pprint.pprint(cp_data.route_list().__sizeof__())
