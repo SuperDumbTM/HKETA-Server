@@ -1,0 +1,11 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+# copy default app
+if [[ -z "$(ls -A /app)" ]]; then
+    cp -nr /defaults/app/* /app/
+fi
+
+# permissions
+lsiown -R abc:abc \
+    /app
