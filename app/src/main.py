@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.src.routers import eta, route
 
-app = FastAPI(debug=True)
+app = FastAPI(title="HKETA-API-Server", debug=True)
 
 app.mount("/static", StaticFiles(directory=os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "static")), name="static")
