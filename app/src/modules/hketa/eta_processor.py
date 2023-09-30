@@ -15,13 +15,7 @@ except (ImportError, ModuleNotFoundError):
 class EtaProcessor(ABC):
     """Public Transport ETA Retriver
     ~~~~~~~~~~~~~~~~~~~~~
-    retrive, process and unify the format of ETA(s) data
-
-    referer to `get_etas` for returns format
-
-    ---
-    during initialisation, `EtaProcessor` will check whether the route is exists
-    or not.  If not exists, `exceptions.RouteNotExist` will be raised.
+    Retrive, process and unify the format of ETA(s) data
     """
 
     @property
@@ -42,10 +36,7 @@ class EtaProcessor(ABC):
 
     @abstractmethod
     def etas(self) -> list[dict[str, str | int]]:
-        """Get processed ETAs
-
-        Raises:
-            EmptyDataError: no eta data
+        """Return processed ETAs
 
         Returns:
             list: sequence of ETA(s).
@@ -116,7 +107,7 @@ class KmbEta(EtaProcessor):
             if len(etas) == 3:
                 #  NOTE: the number of ETA entry form API at the same stop may not be 3 every time.
                 #  KMB only provide at most 3 upcoming ETAs
-                #  (e.g. N routes may provide only 2)
+                #  (e.g. N- routes may provide only 2)
                 break
 
         return etas

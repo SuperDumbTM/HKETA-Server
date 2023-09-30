@@ -1,7 +1,6 @@
 """
-api module provides methods to retrive transport related data from data.gov.hk
-
-beaware that all method are asynchronous (implemented using `aiohttp`)
+This module includes methods to retrive transport related data (e.g. ETA)\
+      from data.gov.hk
 """
 import logging
 from typing import Literal

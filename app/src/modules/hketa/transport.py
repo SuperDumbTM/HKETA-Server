@@ -46,7 +46,7 @@ class Transport(ABC):
 
     @property
     def data(self) -> dict[str, models.RouteInfo]:
-        return self._data
+        return self._route_list
 
     @property
     def route_data(self) -> company_data.CompanyData:
@@ -55,7 +55,7 @@ class Transport(ABC):
 
     def __init__(self, route_data: company_data.CompanyData) -> None:
         self._provider = route_data
-        self._data = self._provider.route_list()
+        self._route_list = self._provider.route_list()
 
     @abstractmethod
     def logo(self) -> io.BufferedReader:

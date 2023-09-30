@@ -28,10 +28,14 @@ class CompanyData(ABC):
     """
         # Public Transport Company Data Retriver
         ~~~~~~~~~~~~~~~~~~~~~
-        `CompanyData` is designed to retrive and store the data to local file system.
+        `CompanyData` is designed to retrive transport companies data.
 
-        It can work without storing the data to local.
-        However, it will takes much longer time to retrive data and may fails due to API rate limit
+        By default, all the invocation of fetching methods will directly \
+            request data from the internet. However, it could takes much \
+            longer time to retrive data and may fails due to API rate limit.
+
+        Alternativly, you can configuar the class to save a copy of the data\
+            to local file system.
     """
 
     class EnhancedJSONEncoder(json.JSONEncoder):
@@ -60,12 +64,12 @@ class CompanyData(ABC):
         pass
 
     @property
-    def routes_json(self) -> os.PathLike:
+    def route_list_path(self) -> os.PathLike:
         """Path to \"routes\" data file name"""
         return os.path.join(self._root, "routes.json")
 
     @property
-    def route_directory(self) -> os.PathLike:
+    def stops_list_dir(self) -> os.PathLike:
         """Path to \"route\" data directory"""
         return os.path.join(self._root, "routes")
 
@@ -114,7 +118,7 @@ class CompanyData(ABC):
 
     @abstractmethod
     async def fetch_route_list(self) -> dict[str, dict[str, list]]:
-        """Fetch the route list and its details from API
+        """Fetch the route list and route details from API
 
         Returns:
             >>> example
@@ -134,7 +138,7 @@ class CompanyData(ABC):
 
     @abstractmethod
     async def fetch_stop_list(self, entry: models.RouteEntry) -> list[dict[str, Any]]:
-        """Fetch the stop list of a the `entry` and its details from API
+        """Fetch the stop list of a the `entry` and stop details from API
 
         Returns:
             >>> example
@@ -149,12 +153,14 @@ class CompanyData(ABC):
         """
 
     def stop_list(self, entry: models.RouteEntry) -> Iterable[models.RouteInfo.Stop]:
-        """Retrive stop list and data of the `route`. Create/update the data file if necessary
+        """Retrive stop list and data of the `route`.
+
+        Create/update local cache when necessary.
 
         Args:
             entry (route_entry.RouteEntry): Target route
         """
-        fpath = os.path.join(self.route_directory, self.route_fname(entry))
+        fpath = os.path.join(self.stops_list_dir, self.route_fname(entry))
 
         if not self.is_store:
             logging.info(
@@ -167,7 +173,7 @@ class CompanyData(ABC):
 
             stops = asyncio.run(self.fetch_stop_list(entry))
             self._put_data_file(
-                os.path.join(self.route_directory, self.route_fname(entry)), stops)
+                os.path.join(self.stops_list_dir, self.route_fname(entry)), stops)
 
         if "stops" not in locals():
             with open(fpath, "r", encoding="utf-8") as f:
@@ -178,22 +184,24 @@ class CompanyData(ABC):
         return (models.RouteInfo.Stop(**stop) for stop in stops)
 
     def route_list(self) -> MutableMapping[str, models.RouteInfo]:
-        """Retrive all route list and data operating by the operator. Create/update when necessary
+        """Retrive all route list and data operating by the operator.
+
+        Create/update local cache when necessary.
         """
         if not self.is_store:
             logging.info(
                 "retiving %s routes data (no store is set)", type(self).__name__)
             routes = self.fetch_route_list()
-        elif self.is_outdated(self.routes_json):
+        elif self.is_outdated(self.route_list_path):
             logging.info(
                 "%s route list cache is outdated or not exists, updating...", type(self).__name__)
 
             routes = asyncio.run(self.fetch_route_list())
-            self._put_data_file(self.routes_json, routes)
+            self._put_data_file(self.route_list_path, routes)
         else:
-            with open(self.routes_json, "r", encoding="utf-8") as f:
+            with open(self.route_list_path, "r", encoding="utf-8") as f:
                 logging.debug(
-                    "Loading route list stop list from %s", self.routes_json)
+                    "Loading route list stop list from %s", self.route_list_path)
                 routes = json.load(f)['data']
 
         return {
@@ -250,13 +258,10 @@ class CompanyData(ABC):
         return f"{entry.name}-{entry.direction.value}-{entry.service_type}.json"
 
     def _put_data_file(self, path: os.PathLike, data) -> None:
-        """Write `data` (routes data) to persistent storage
-
-        Args:
-            data (Mapping): Routes list and data of the operator
+        """Write `data` to local file system.
         """
         with open(path, "w", encoding="utf-8") as f:
-            logging.info("Writing %s route data to %s",
+            logging.info("Saving %s data to %s",
                          type(self).__name__, path)
             json.dump(
                 {
@@ -272,13 +277,11 @@ class KMBData(CompanyData):
 
     company = enums.Company.KMB
 
-    _direction = {
+    _bound_map = {
         'O': enums.Direction.OUTBOUND.value,
         'I': enums.Direction.INBOUND.value,
-        enums.Direction.OUTBOUND.value: "I",
-        enums.Direction.INBOUND.value: "O"
     }
-    """direction text translation to `hketa.enums.Direction`"""
+    """Direction mapping to `hketa.enums.Direction`"""
 
     def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         super().__init__(os.path.join(root, "kmb"), store_local, threshold)
@@ -288,7 +291,7 @@ class KMBData(CompanyData):
                                       stop: dict) -> dict:
             """Fetch the terminal stops details (all direction) for the `stop`
             """
-            direction = self._direction[stop['bound']]
+            direction = self._bound_map[stop['bound']]
             stop_list = (await api.kmb_route_stop_list(
                 stop['route'], direction, stop['service_type'], session))['data']
             return {
@@ -362,13 +365,11 @@ class MTRLrtData(CompanyData):
 
     company = enums.Company.MTRLRT
 
-    _direction = {
-        enums.Direction.OUTBOUND.value: "1",
-        enums.Direction.INBOUND.value: "2",
+    _bound_map = {
         '1': enums.Direction.OUTBOUND.value,
         '2': enums.Direction.INBOUND.value
     }
-    """Direction text translation"""
+    """Direction mapping to `hketa.enums.Direction`"""
 
     def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         super().__init__(os.path.join(root, "mtr_lrt"), store_local, threshold)
@@ -381,7 +382,7 @@ class MTRLrtData(CompanyData):
         for row in apidata:
             # column definition:
             # route, direction , stopCode, stopID, stopTCName, stopENName, seq
-            direction = self._direction[row[1]]
+            direction = self._bound_map[row[1]]
             route_list.setdefault(row[0], {'inbound': [], 'outbound': []})
 
             if (row[6] == "1.00"):
@@ -405,7 +406,7 @@ class MTRLrtData(CompanyData):
         apidata = csv.reader(await api.mtr_lrt_route_stop_list())
         stops = [stop for stop in apidata
                  if stop[0] == str(entry.name)
-                 and self._direction[stop[1]] == entry.direction]
+                 and self._bound_map[stop[1]] == entry.direction]
 
         if len(stops) == 0:
             raise exceptions.RouteNotExist()
@@ -420,13 +421,11 @@ class MTRTrainData(CompanyData):
 
     company = enums.Company.MTRTRAIN
 
-    _direction = {
+    _bound_map = {
         'DT': enums.Direction.DOWNLINK.value,
         'UT': enums.Direction.UPLINK.value,
-        enums.Direction.DOWNLINK.value: "DT",
-        enums.Direction.UPLINK.value: "UT",
     }
-    """Direction text translation"""
+    """Direction mapping to `hketa.enums.Direction`"""
 
     def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         super().__init__(os.path.join(root, "mtr_train"), store_local, threshold)
@@ -448,7 +447,7 @@ class MTRTrainData(CompanyData):
                 direction, rt_type = rt_type, direction  # e.g. LMC-DT
                 # make a "new line" for these type of route
                 row[0] += f"-{rt_type}"
-            direction = self._direction[direction]
+            direction = self._bound_map[direction]
             route_list.setdefault(row[0], {'inbound': [], 'outbound': []})
 
             if (row[6] == "1.00"):
@@ -484,7 +483,7 @@ class MTRTrainData(CompanyData):
         else:
             stops = [stop for stop in apidata
                      if stop[0] == str(entry.name)
-                     and self._direction[stop[1].split("-")[-1]] == entry.direction]
+                     and self._bound_map[stop[1].split("-")[-1]] == entry.direction]
             # stop[1] (direction) could contain not just the direction (e.g. LMC-DT)
 
         if len(stops) == 0:
@@ -500,13 +499,11 @@ class MTRBusData(CompanyData):
 
     company = enums.Company.MTRBUS
 
-    _direction = {
+    _bound_map = {
         'O': enums.Direction.OUTBOUND.value,
         'I': enums.Direction.INBOUND.value,
-        enums.Direction.OUTBOUND.value: "I",
-        enums.Direction.INBOUND.value: "O"
     }
-    """direction text translation to `hketa.enums`"""
+    """Direction mapping to `hketa.enums.Direction`"""
 
     def __init__(self, root: os.PathLike = None, store_local: bool = False, threshold: int = 30) -> None:
         super().__init__(os.path.join(root, "mtr_bus"), store_local, threshold)
@@ -519,7 +516,7 @@ class MTRBusData(CompanyData):
         for row in apidata:
             # column definition:
             # route, direction, seq, stopID, stopLAT, stopLONG, stopTCName, stopENName
-            direction = self._direction[row[1]]
+            direction = self._bound_map[row[1]]
             route_list.setdefault(row[0], {'inbound': [], 'outbound': []})
 
             if row[2] == "1.00":
@@ -549,7 +546,7 @@ class MTRBusData(CompanyData):
             apidata = csv.reader(await api.mtr_bus_stop_list(session))
 
         stops = [stop for stop in apidata
-                 if stop[0] == str(entry.name) and self._direction[stop[1]] == entry.direction]
+                 if stop[0] == str(entry.name) and self._bound_map[stop[1]] == entry.direction]
 
         if len(stops) == 0:
             raise exceptions.RouteNotExist()

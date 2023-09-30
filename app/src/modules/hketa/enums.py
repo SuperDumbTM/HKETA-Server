@@ -3,7 +3,7 @@ from enum import Enum
 
 
 class Locale(str, Enum):
-    """Language code for text language"""
+    """Locale codes"""
 
     TC = "tc"
     EN = "en"

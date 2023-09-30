@@ -22,8 +22,7 @@ class Route(ABC):
 
     _entry: models.RouteEntry
     _provider: company_data.CompanyData
-    _data: dict[str, models.RouteInfo.Stop]
-    """Route details (stop name, ID)"""
+    _stop_list: dict[str, models.RouteInfo.Stop]
 
     @property
     def route_entry(self) -> models.RouteEntry:
@@ -33,17 +32,17 @@ class Route(ABC):
     def data(self) -> dict[str, models.RouteInfo.Stop]:
         """Raw data of the route
         """
-        return self._data
+        return self._stop_list
 
     def __init__(self, entry: models.RouteEntry, company_data: company_data.CompanyData) -> None:
         self._entry = entry
         self._provider = company_data
 
         stop_list = tuple(self._provider.stop_list(self._entry))
-        self._data = {stop: data for stop, data in zip(
+        self._stop_list = {stop: data for stop, data in zip(
             (stop.stop_code for stop in stop_list), stop_list)}
 
-        if (self._entry.stop not in self._data.keys()):
+        if (self._entry.stop not in self._stop_list.keys()):
             raise exceptions.RouteNotExist
 
     def route_name(self) -> str:

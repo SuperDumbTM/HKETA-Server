@@ -8,8 +8,7 @@ except (ImportError, ModuleNotFoundError):
 
 
 class RouteDetails(object):
-    """A facade to retrive both the public transport operatpr information and
-    route information
+    """A facade to retrive both the public transport and route information.
     """
 
     @property
