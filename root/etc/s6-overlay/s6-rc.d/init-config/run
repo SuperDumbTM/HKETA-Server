@@ -1,0 +1,9 @@
+#!/command/execlineb -P
+
+echo "
+The implementation of this image is heavly refered to LinuxServer.io alpine
+ base image (https://github.com/linuxserver/docker-baseimage-alpine/tree/master).
+
+To support LSIO projects visit:
+https://www.linuxserver.io/donate/
+"

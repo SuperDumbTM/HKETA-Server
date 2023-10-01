@@ -1,0 +1,3 @@
+#!/bin/bash
+
+chown "$@" || printf '**** Permissions could not be set. This is probably because your volume mounts are remote or read-only. ****'
