@@ -1,0 +1,5 @@
+.gitignore
+.pylintrc
+*.md
+/.vscode
+/scripts

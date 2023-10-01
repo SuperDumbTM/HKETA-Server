@@ -1,5 +1,0 @@
-#!/usr/bin/with-contenv bash
-# shellcheck shell=bash
-
-echo "*** Installing required libraries. ***"
-python3.11 -m pip install -r /app/requirements.txt
