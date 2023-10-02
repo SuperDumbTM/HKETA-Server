@@ -10,6 +10,6 @@ call conda activate %ENVNAME%
 
 echo Installing required Python packages.
 echo:
-call pip install -r "%~dp0..\requirements.txt"
+call pip install -r "%~dp0..\..\requirements.txt"
 
 pause
