@@ -1,5 +1,5 @@
 #!/bin/bash
 
-ENVNAME="hketa-server"
+ENVNAME=$(cat ../ENVNAME)
 
 conda activate $ENVNAME && cd ../.. && uvicorn app.src.main:app --reload
