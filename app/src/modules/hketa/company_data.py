@@ -387,7 +387,8 @@ class MTRLrtData(CompanyData):
 
             if (row[6] == "1.00"):
                 # original
-                route_list[row[0]][direction].append({'service_type': None})
+                route_list[row[0]][direction].append(
+                    {'service_type': "default"})
                 route_list[row[0]][direction][0]['orig'] = {
                     'stop_code': row[3],
                     'seq': row[6],
@@ -454,7 +455,7 @@ class MTRTrainData(CompanyData):
                 # origin
                 route_list[row[0]][direction].append(
                     {
-                        'service_type': None,
+                        'service_type': "default",
                         'orig': {
                             'stop_code': row[2],
                             'seq': int(row[6].strip(".00")),
@@ -523,7 +524,7 @@ class MTRBusData(CompanyData):
                 # orignal
                 route_list[row[0]][direction].append(
                     {
-                        'service_type': None,
+                        'service_type': "default",
                         'orig': {
                             'stop_code': row[3],
                             'seq': int(row[2].strip(".00")),
@@ -588,7 +589,7 @@ class CityBusData(CompanyData):
                 ])
 
                 routes[route['route']][direction] = [{
-                    'service_type': None,
+                    'service_type': "default",
                     'orig': {
                         'stop_code': stop_list[0]['stop'],
                         'seq': stop_list[0]['seq'],

@@ -18,7 +18,7 @@ class RouteEntry:
     name: str
     direction: enums.Direction
     stop: str
-    service_type: Optional[str]
+    service_type: str
     lang: enums.Locale
 
     def __post_init__(self):
@@ -53,7 +53,7 @@ class RouteInfo:
     @dataclass(slots=True, frozen=True)
     class Detail:
 
-        service_type: Optional[str]
+        service_type: str
         orig: Optional["RouteInfo.Stop"]
         dest: Optional["RouteInfo.Stop"]
 

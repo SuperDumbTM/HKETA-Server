@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Optional
 
 from fastapi import APIRouter
@@ -45,11 +46,25 @@ def get_route_list(company: hketa.enums.Company,
     return std_response.StdResponse.success(data={'routes': route_list})
 
 
-@router.get("/{company}/{route_name}/{direction}/stops")
+@router.get("/{company}/{route}")
+def get_route_details(company: hketa.enums.Company,
+                      route: str = None,
+                      ) -> std_response.StdResponse:
+    route_list = (definition.ETA_FACTORY
+                  .create_company_data(company)
+                  .route_list())
+
+    if route not in route_list.keys():
+        # TODO: handle route not exists
+        pass
+    return std_response.StdResponse.success(data=asdict(route_list[route.upper()]))
+
+
+@router.get("/{company}/{route_name}/{direction}/{service_type}/stops")
 def get_stop_list(company: hketa.enums.Company,
                   route_name: str,
                   direction: hketa.enums.Direction,
-                  service_type: Optional[str | int] = None) -> std_response.StdResponse:
+                  service_type: str) -> std_response.StdResponse:
 
     return std_response.StdResponse.success(
         data={
