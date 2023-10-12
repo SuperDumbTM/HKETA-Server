@@ -260,6 +260,8 @@ class CompanyData(ABC):
     def _put_data_file(self, path: os.PathLike, data) -> None:
         """Write `data` to local file system.
         """
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
         with open(path, "w", encoding="utf-8") as f:
             logging.info("Saving %s data to %s",
                          type(self).__name__, path)
