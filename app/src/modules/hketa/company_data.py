@@ -406,6 +406,10 @@ class MTRLrtData(CompanyData):
         return route_list
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
+        if (entry.service_type != "nil"):
+            raise exceptions.RouteNotExist(
+                f"Invalid service type: {entry.service_type}")
+
         apidata = csv.reader(await api.mtr_lrt_route_stop_list())
         stops = [stop for stop in apidata
                  if stop[0] == str(entry.name)
@@ -476,6 +480,10 @@ class MTRTrainData(CompanyData):
         return route_list
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
+        if (entry.service_type != "nil"):
+            raise exceptions.RouteNotExist(
+                f"Invalid service type: {entry.service_type}")
+
         apidata = csv.reader(await api.mtr_train_route_stop_list())
 
         if "-" in entry.name:
@@ -545,6 +553,10 @@ class MTRBusData(CompanyData):
         return route_list
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
+        if (entry.service_type != "nil"):
+            raise exceptions.RouteNotExist(
+                f"Invalid service type: {entry.service_type}")
+
         async with aiohttp.ClientSession() as session:
             apidata = csv.reader(await api.mtr_bus_stop_list(session))
 
@@ -620,6 +632,10 @@ class CityBusData(CompanyData):
                     for route in await asyncio.gather(*tasks)}
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
+        if (entry.service_type != "nil"):
+            raise exceptions.RouteNotExist(
+                f"Invalid service type: {entry.service_type}")
+
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             """Fetch `stop_code`, `seq`, `name` of the 'stop'"""
             dets = (await api.bravobus_stop_details(stop['stop'], session))['data']
