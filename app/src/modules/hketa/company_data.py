@@ -406,7 +406,7 @@ class MTRLrtData(CompanyData):
         return route_list
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
-        if (entry.service_type != "nil"):
+        if (entry.service_type != "default"):
             raise exceptions.RouteNotExist(
                 f"Invalid service type: {entry.service_type}")
 
@@ -480,7 +480,7 @@ class MTRTrainData(CompanyData):
         return route_list
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
-        if (entry.service_type != "nil"):
+        if (entry.service_type != "default"):
             raise exceptions.RouteNotExist(
                 f"Invalid service type: {entry.service_type}")
 
@@ -553,7 +553,7 @@ class MTRBusData(CompanyData):
         return route_list
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
-        if (entry.service_type != "nil"):
+        if (entry.service_type != "default"):
             raise exceptions.RouteNotExist(
                 f"Invalid service type: {entry.service_type}")
 
@@ -632,7 +632,7 @@ class CityBusData(CompanyData):
                     for route in await asyncio.gather(*tasks)}
 
     async def fetch_stop_list(self, entry: models.RouteEntry) -> dict:
-        if (entry.service_type != "nil"):
+        if (entry.service_type != "default"):
             raise exceptions.RouteNotExist(
                 f"Invalid service type: {entry.service_type}")
 
