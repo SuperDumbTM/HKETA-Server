@@ -3,7 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter
 
-from app.src import definition
+from app.src import definition, utils
 from app.src.models import std_response
 from app.src.modules import hketa
 
@@ -78,3 +78,26 @@ def get_stop_list(company: hketa.enums.Company,
                 ))
         }
     )
+
+
+@router.get("/{company}/{route_name}/{direction}/{service_type}/stop")
+def get_stop(company: hketa.enums.Company,
+             route_name: str,
+             direction: hketa.enums.Direction,
+             service_type: str,
+             stop_code: str) -> std_response.StdResponse:
+    stop_list = definition.ETA_FACTORY.create_company_data(company).stop_list(
+        hketa.models.RouteEntry(company, route_name, direction, "", service_type, hketa.enums.Locale.TC))
+
+    for stop in stop_list:
+        if stop.stop_code == stop_code:
+            return std_response.StdResponse.success(
+                data={
+                    'company': company,
+                    'route_name': route_name,
+                    'direction': direction,
+                    'service_type': service_type,
+                    'stop': asdict(stop, dict_factory=utils.custom_asdict_factory)
+                }
+            )
+    return std_response.StdResponse.fail(message="Not found.")
