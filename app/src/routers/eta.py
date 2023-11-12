@@ -33,7 +33,8 @@ def get_eta(company: hketa.enums.Company,
         return std_response.StdResponse.success(
             data={
                 'route': route_name,
-                'stop': provider.details.stop_name(),
+                'origin': provider.details.origin(),
+                'stop_name': provider.details.stop_name(),
                 'logo': "",
                 "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
                 'etas': provider.etas(),

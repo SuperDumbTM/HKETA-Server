@@ -98,9 +98,8 @@ class KmbEta(EtaProcessor):
                 company=enums.Company[stop['co']],
                 destination=stop[f'dest_{lang_code}'],
                 is_arriving=False,
-                time=self.dt_tostring(eta_dt),
-                minute=int((eta_dt - timestamp).total_seconds() / 60),
-                second=int((eta_dt - timestamp).total_seconds()),
+                eta=stop['eta'],
+                eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
                 remark=stop[f'rmk_{lang_code}']
             ))
 
@@ -145,25 +144,23 @@ class MtrBusEta(EtaProcessor):
                     time_ref = "arrival"
 
                 if (any(char.isdigit() for char in eta[f'{time_ref}TimeText'])):
-                    #  eta TimeText has numbers (e.g. 3 分鐘/3 Minutes)
+                    # eta TimeText has numbers (e.g. 3 分鐘/3 Minutes)
                     eta_sec = int(eta[f'{time_ref}TimeInSecond'])
                     etas.append(models.Eta(
                         company=enums.Company.MTRBUS,
                         destination=super().details.destination(),
                         is_arriving=False,
-                        time=self.dt_tostring(
-                            timestamp + datetime.timedelta(seconds=eta_sec)),
-                        minute=eta[f'{time_ref}TimeText'].split(" ")[0],
-                        second=eta_sec,
+                        eta=(timestamp + datetime.timedelta(seconds=eta_sec)
+                             ).isoformat(timespec="seconds"),
+                        eta_minute=eta[f'{time_ref}TimeText'].split(" ")[0],
                     ))
                 else:
                     etas.append(models.Eta(
                         company=enums.Company.MTRBUS,
                         destination=super().details.destination(),
                         is_arriving=False,
-                        time=self.dt_tostring(datetime.datetime.now()),
-                        minute=0,
-                        second=0,
+                        eta=datetime.datetime.now().isoformat(timespec="seconds"),
+                        eta_minute=0,
                         remark=eta[f'{time_ref}TimeText']
                     ))
             break
@@ -214,16 +211,14 @@ class MtrLrtEta(EtaProcessor):
                 eta_min = eta[f'time_{lang_code}'].split(" ")[0]
                 if eta_min.isnumeric():
                     eta_min = int(eta_min)
-                    eta_dt = timestamp + datetime.timedelta(minutes=eta_min)
 
                     etas.append(models.Eta(
                         company=enums.Company.MTRLRT,
                         destination=destination,
                         is_arriving=False,
-                        time=self.dt_tostring(eta_dt),
-                        minute=eta_min,
-                        second=int(
-                            (eta_dt - datetime.datetime.now(timestamp.tzinfo)).total_seconds()),
+                        eta=(timestamp + datetime.timedelta(minutes=eta_min)
+                             ).isoformat(timespec="seconds"),
+                        eta_minute=eta_min,
                         extras=models.Eta.ExtraInfo(
                             platform=platform['platform_id'],
                             car_length=eta['train_length']
@@ -234,9 +229,8 @@ class MtrLrtEta(EtaProcessor):
                         company=enums.Company.MTRLRT,
                         destination=destination,
                         is_arriving=True,
-                        time=self.dt_tostring(datetime.datetime.now()),
-                        minute=0,
-                        second=0,
+                        eta=datetime.datetime.now().isoformat(timespec="seconds"),
+                        eta_minute=0,
                         remark=eta_min,
                         extras=models.Eta.ExtraInfo(
                             platform=platform['platform_id'],
@@ -280,12 +274,10 @@ class MtrTrainEta(EtaProcessor):
 
             etas.append(models.Eta(
                 company=enums.Company.MTRTRAIN,
-                destination=super().details.rt_stop_name(
-                    entry['dest']),
+                destination=super().details.rt_stop_name(entry['dest']),
                 is_arriving=False,
-                time=self.dt_tostring(eta_dt),
-                minute=int((eta_dt - timestamp).total_seconds() / 60),
-                second=int((eta_dt - timestamp).total_seconds()),
+                eta=entry["time"],
+                eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
                 extras=models.Eta.ExtraInfo(platform=entry['plat'])
             ))
 
@@ -330,9 +322,8 @@ class BravoBusEta(EtaProcessor):
                     company=enums.Company[eta['co']],
                     destination=eta[f"dest_{lang_code}"],
                     is_arriving=False,
-                    time=None,
-                    minute=None,
-                    second=None,
+                    eta=None,
+                    eta_minute=None,
                     remark=eta[f"rmk_{lang_code}"]
                 ))
             else:
@@ -342,9 +333,8 @@ class BravoBusEta(EtaProcessor):
                     company=enums.Company[eta['co']],
                     destination=eta[f"dest_{lang_code}"],
                     is_arriving=False,
-                    time=self.dt_tostring(eta_dt),
+                    eta=eta['eta'],
                     minute=int((eta_dt - timestamp).total_seconds() / 60),
-                    second=int((eta_dt - timestamp).total_seconds()),
                     remark=eta[f"rmk_{lang_code}"]
                 ))
 

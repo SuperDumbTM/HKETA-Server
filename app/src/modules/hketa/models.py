@@ -64,9 +64,8 @@ class Eta:
     company: enums.Company
     destination: str
     is_arriving: bool
-    time: Optional[str]
-    minute: Optional[int]
-    second: Optional[int]
+    eta: Optional[str]
+    eta_minute: Optional[int]
     remark: Optional[str] = None
     extras: "Eta.ExtraInfo" = Field(default_factory=lambda: Eta.ExtraInfo())
 
