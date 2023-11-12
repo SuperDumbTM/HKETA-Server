@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional
 
 from fastapi import APIRouter
@@ -32,12 +33,10 @@ def get_eta(company: hketa.enums.Company,
         return std_response.StdResponse.success(
             data={
                 'route': route_name,
-                'orig': provider.details.origin(),
-                'dest': provider.details.destination(),
-                'direction': direction.value,
                 'stop': provider.details.stop_name(),
                 'logo': "",
-                'etas': provider.etas()
+                "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+                'etas': provider.etas(),
             }
         )
     except hketa.exceptions.EndOfService:
