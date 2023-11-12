@@ -63,7 +63,7 @@ class Transport(ABC):
 
     def origin(self, entry: models.RouteEntry):
         try:
-            return self.data[entry.name].bound_lookup(entry.direction)[0].orig.name[entry.name]
+            return self.data[entry.name].bound_lookup(entry.direction)[0].orig.name[entry.lang]
         except KeyError:
             return "-----"
 
