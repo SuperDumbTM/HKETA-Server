@@ -158,7 +158,7 @@ class MtrBusEta(EtaProcessor):
                     etas.append(models.Eta(
                         company=enums.Company.MTRBUS,
                         destination=super().details.destination(),
-                        is_arriving=False,
+                        is_arriving=True,
                         eta=datetime.datetime.now().isoformat(timespec="seconds"),
                         eta_minute=0,
                         remark=eta[f'{time_ref}TimeText']
