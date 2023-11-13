@@ -34,6 +34,7 @@ def get_eta(company: hketa.enums.Company,
             data={
                 'route': route_name,
                 'origin': provider.details.origin(),
+                'destination': provider.details.destination(),
                 'stop_name': provider.details.stop_name(),
                 'logo': "",
                 "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
