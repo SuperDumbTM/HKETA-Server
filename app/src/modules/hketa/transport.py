@@ -63,9 +63,6 @@ class Transport(ABC):
 
     def origin(self, entry: models.RouteEntry):
         try:
-            import pprint
-            pprint.pprint(
-                self.data[entry.name].bound_lookup(entry.direction)[0])
             return self.data[entry.name].bound_lookup(entry.direction)[0].orig.name[entry.lang]
         except KeyError:
             return "-----"
