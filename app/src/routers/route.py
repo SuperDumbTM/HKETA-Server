@@ -43,7 +43,7 @@ def get_route_list(company: hketa.enums.Company,
             if len(list(filtered)) <= 0:
                 route_list.pop(route_name)
 
-    return std_response.StdResponse.success(data={'routes': route_list})
+    return std_response.StdResponse.success_(data={'routes': route_list})
 
 
 @router.get("/{company}/{route}")
@@ -57,7 +57,7 @@ def get_route_details(company: hketa.enums.Company,
     if route not in route_list.keys():
         # TODO: handle route not exists
         pass
-    return std_response.StdResponse.success(data=asdict(route_list[route.upper()]))
+    return std_response.StdResponse.success_(data=asdict(route_list[route.upper()]))
 
 
 @router.get("/{company}/{route_name}/{direction}/{service_type}/stops")
@@ -66,7 +66,7 @@ def get_stop_list(company: hketa.enums.Company,
                   direction: hketa.enums.Direction,
                   service_type: str) -> std_response.StdResponse:
 
-    return std_response.StdResponse.success(
+    return std_response.StdResponse.success_(
         data={
             'company': company,
             'route_name': route_name,
@@ -91,7 +91,7 @@ def get_stop(company: hketa.enums.Company,
 
     for stop in stop_list:
         if stop.stop_code == stop_code:
-            return std_response.StdResponse.success(
+            return std_response.StdResponse.success_(
                 data={
                     'company': company,
                     'route_name': route_name,
