@@ -35,7 +35,7 @@ def get_eta(company: hketa.enums.Company,
         'stop_name': provider.details.stop_name(),
         'logo': "",
         'timestamp': datetime.datetime.now().isoformat(timespec="seconds"),
-        'eta': None
+        'etas': None
     }
 
     try:
