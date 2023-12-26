@@ -28,12 +28,13 @@ def get_eta(company: hketa.enums.Company,
             service_type=service_type,
             lang=lang
         ))
+
     info = {
         'route': route_name,
         'origin': provider.details.origin(),
         'destination': provider.details.destination(),
         'stop_name': provider.details.stop_name(),
-        'logo': "",
+        'logo_url': f'/{company.value}/bw/icon',
         'timestamp': datetime.datetime.now().isoformat(timespec="seconds"),
         'etas': None
     }

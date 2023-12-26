@@ -47,31 +47,20 @@ class Company(str, Enum):
         raise ValueError(f"company abbreviation not exists: {company}")
 
     def description(self, language: Locale = Locale.TC) -> str:
-        match language, self:
-            case Locale.TC, Company.KMB:
-                return "九巴"
-            case Locale.TC, Company.MTRBUS:
-                return "港鐵巴士"
-            case Locale.TC, Company.MTRLRT:
-                return "輕鐵"
-            case Locale.TC, Company.MTRTRAIN:
-                return "地鐵"
-            case Locale.TC, Company.CTB:
-                return "城巴"
-            case Locale.TC, Company.NWFB:
-                return "新巴"
-            case Locale.EN, Company.KMB:
-                return "KMB"
-            case Locale.EN, Company.MTRBUS:
-                return "MTR Bus"
-            case Locale.EN, Company.MTRLRT:
-                return "MTR LRT"
-            case Locale.EN, Company.MTRTRAIN:
-                return "MTR Train"
-            case Locale.EN, Company.CTB:
-                return "City Bus"
-            case Locale.EN, Company.NWFB:
-                return "First Bus"
+        if language == Locale.EN:
+            match self:
+                case Company.KMB: return "KMB"
+                case Company.MTRBUS: return "MTR (Bus)"
+                case Company.MTRLRT: return "MTR (Light Rail)"
+                case Company.MTRTRAIN: return "MTR"
+                case Company.CTB: return "City Bus"
+        else:
+            match self:
+                case Company.KMB: return "九巴"
+                case Company.MTRBUS: return "港鐵巴宜"
+                case Company.MTRLRT: return "輕鐵"
+                case Company.MTRTRAIN: return "港鐵"
+                case Company.CTB: return "城巴"
 
 
 class Direction(str, Enum):
