@@ -34,7 +34,7 @@ def get_eta(company: hketa.enums.Company,
         'origin': provider.details.origin(),
         'destination': provider.details.destination(),
         'stop_name': provider.details.stop_name(),
-        'logo_url': f'/{company.value}/bw/icon',
+        'logo_url': f'/{company.value}/bw_neg/icon',
         'timestamp': datetime.datetime.now().isoformat(timespec="seconds"),
         'etas': None
     }

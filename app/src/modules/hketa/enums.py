@@ -1,4 +1,3 @@
-from typing import Iterable
 from enum import Enum
 
 
@@ -7,16 +6,6 @@ class Locale(str, Enum):
 
     TC = "tc"
     EN = "en"
-
-    @classmethod
-    def values(cls) -> Iterable[str]:
-        return list(map(lambda c: c.value, cls))
-
-    def from_str(self, locale: str) -> "Locale":
-        for code in Locale:
-            if (code.value.lower() == locale.lower()):
-                return code
-        raise ValueError(f"Locale not exists: {locale}")
 
     def description(self) -> str:
         match self:
@@ -35,16 +24,6 @@ class Company(str, Enum):
     MTRTRAIN = "mtr_train"
     CTB = "ctb"
     NWFB = "nwfb"
-
-    @classmethod
-    def values(cls) -> Iterable[str]:
-        return list(map(lambda c: c.value, cls))
-
-    def from_str(self, company: str) -> "Company":
-        for co in Company:
-            if (co.value.lower() == company.lower()):
-                return co
-        raise ValueError(f"company abbreviation not exists: {company}")
 
     def description(self, language: Locale = Locale.TC) -> str:
         if language == Locale.EN:
@@ -69,16 +48,6 @@ class Direction(str, Enum):
     OUTBOUND = UPLINK = "outbound"
     INBOUND = DOWNLINK = "inbound"
 
-    @classmethod
-    def values(cls) -> Iterable[str]:
-        return list(map(lambda c: c.value, cls))
-
-    def from_str(self, direction: str) -> "Direction":
-        for dir in Direction:
-            if (dir.value.lower() == direction.lower()):
-                return dir
-        raise ValueError(f"direction not exists: {direction}")
-
     def description(self, language: Locale = Locale.TC) -> str:
         match language, self:
             case Locale.TC, Direction.OUTBOUND:
@@ -97,16 +66,6 @@ class StopType(str, Enum):
     ORIG = ORIGINATION = "orig"
     STOP = MIDWAY = "stop"
     DEST = DESTINATION = "dest"
-
-    @classmethod
-    def values(cls) -> Iterable[str]:
-        return list(map(lambda c: c.value, cls))
-
-    def from_str(self, type_: str) -> "StopType":
-        for ty in StopType:
-            if (ty.value.lower() == type_.lower()):
-                return ty
-        raise ValueError(f"stop type not exists: {type_}")
 
     def description(self, language: Locale = Locale.TC) -> "StopType":
         match language, self:
