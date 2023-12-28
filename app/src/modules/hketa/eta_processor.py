@@ -334,7 +334,7 @@ class BravoBusEta(EtaProcessor):
                     destination=eta[f"dest_{lang_code}"],
                     is_arriving=False,
                     eta=eta['eta'],
-                    minute=int((eta_dt - timestamp).total_seconds() / 60),
+                    eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
                     remark=eta[f"rmk_{lang_code}"]
                 ))
 
