@@ -43,7 +43,7 @@ class Route(ABC):
             (stop.stop_code for stop in stop_list), stop_list)}
 
         if (self._entry.stop not in self._stop_list.keys()):
-            raise exceptions.RouteNotExist
+            raise exceptions.StopNotExist
 
     def route_name(self) -> str:
         """Get the route name of the `entry`"""

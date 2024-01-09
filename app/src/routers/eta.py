@@ -19,15 +19,31 @@ def get_eta(company: hketa.enums.Company,
             service_type: Optional[str | int] = None,
             lang: hketa.enums.Locale = hketa.enums.Locale.TC):
 
-    provider = definition.ETA_FACTORY.create_eta_processor(
-        hketa.models.RouteEntry(
-            company=company,
-            name=route_name,
-            direction=direction,
-            stop=stop,
-            service_type=service_type,
-            lang=lang
-        ))
+    try:
+        provider = definition.ETA_FACTORY.create_eta_processor(
+            hketa.models.RouteEntry(
+                company=company,
+                name=route_name,
+                direction=direction,
+                stop=stop,
+                service_type=service_type,
+                lang=lang
+            ))
+    except hketa.exceptions.StopNotExist as e:
+        return std_response.StdResponse.fail(
+            message="Stop not exists.",
+            code=status_code.StatusCode.STOP_NOT_EXIST,
+            data={
+                'route': route_name,
+                'origin': None,
+                'destination': None,
+                'stop_name': None,
+                'lang': lang.value,
+                'logo_url': None,
+                'timestamp': datetime.datetime.now().isoformat(timespec="seconds"),
+                'etas': None
+            }
+        )
 
     info = {
         'route': route_name,

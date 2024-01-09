@@ -28,3 +28,6 @@ class StatusCode(str, Enum):
 
     ROUTE_NOT_EXIST = "route-not-exist"
     """Invalid route."""
+
+    STOP_NOT_EXIST = "stop-not-exist"
+    """Invalid stop code"""

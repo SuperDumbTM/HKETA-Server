@@ -35,3 +35,6 @@ class AbnormalService(HketaException):
 
 class RouteNotExist(HketaException):
     """Invalid route name/number"""
+
+class StopNotExist(HketaException):
+    """Invalid stop code/ Stop not exists"""
