@@ -3,9 +3,9 @@ import datetime
 from abc import ABC, abstractmethod
 
 try:
-    from app.src.modules.hketa import api, enums, exceptions, facades, models
+    from app.src.modules.hketa import api_async, enums, exceptions, facades, models
 except (ImportError, ModuleNotFoundError):
-    import api
+    import api_async
     import enums
     import exceptions
     import facades
@@ -112,7 +112,7 @@ class KmbEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api.kmb_eta(
+        response = await api_async.kmb_eta(
             super().route_entry.name, super().route_entry.service_type)
 
         if len(response) == 0:
@@ -175,7 +175,7 @@ class MtrBusEta(EtaProcessor):
         #      raise APIError
         #  elif data["routeStatusRemarkTitle"] == "停止服務":
         #      raise EndOfServices
-        response = await api.mtr_bus_eta(
+        response = await api_async.mtr_bus_eta(
             super().route_entry.name, self._locale_map[self.route_entry.lang])
 
         if len(response) == 0:
@@ -241,7 +241,7 @@ class MtrLrtEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api.mtr_lrt_eta(super().route_entry.stop)
+        response = await api_async.mtr_lrt_eta(super().route_entry.stop)
 
         if len(response) == 0 or response.get('status', 0) == 0:
             raise exceptions.APIError
@@ -284,7 +284,7 @@ class MtrTrainEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api.mtr_train_eta(
+        response = await api_async.mtr_train_eta(
             self.linename, super().route_entry.stop, super().route_entry.lang)
 
         if len(response) == 0:
@@ -341,7 +341,7 @@ class BravoBusEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api.bravobus_eta(
+        response = await api_async.bravobus_eta(
             super().route_entry.company.value, super().route_entry.stop, super().route_entry.name)
 
         if len(response) == 0 or response.get('data') is None:
