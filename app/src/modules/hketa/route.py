@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 
 try:
-    from app.src.modules.hketa import company_data, enums, exceptions, models
+    from . import enums, exceptions, models, transport
 except (ImportError, ModuleNotFoundError):
-    import company_data
     import enums
     import exceptions
     import models
+    import transport
 
 
 class Route(ABC):
@@ -21,7 +21,7 @@ class Route(ABC):
     """
 
     _entry: models.RouteEntry
-    _provider: company_data.CompanyData
+    _provider: transport.Transport
     _stop_list: dict[str, models.RouteInfo.Stop]
 
     @property
@@ -34,9 +34,9 @@ class Route(ABC):
         """
         return self._stop_list
 
-    def __init__(self, entry: models.RouteEntry, company_data: company_data.CompanyData) -> None:
+    def __init__(self, entry: models.RouteEntry, transport_: transport.Transport) -> None:
         self._entry = entry
-        self._provider = company_data
+        self._provider = transport_
 
         stop_list = tuple(self._provider.stop_list(self._entry))
         self._stop_list = {stop: data for stop, data in zip(
@@ -140,7 +140,7 @@ class MTRTrainRoute(Route):
 
     def route_name(self) -> str:
         try:
-            return self.__rt_names[self._entry.name].name[self.route_entry.lang]
+            return self.__rt_names[self._entry.name][self.route_entry.lang]
         except KeyError:
             return self._entry.name
 
@@ -176,11 +176,3 @@ class BravoBusRoute(Route):
 
     def stop_seq(self):
         return super().data[self._entry.stop].seq
-
-
-if __name__ == "__main__":
-    entry = models.RouteEntry(
-        enums.Company.MTRTRAIN, "TML", enums.Direction.OUTBOUND, "1", "TIS", enums.Locale.TC)
-    route = MTRTrainRoute(entry, company_data.MTRTrainData(
-        "caches\\transport_data", True))
-    print(route.stop_name())

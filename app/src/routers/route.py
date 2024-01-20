@@ -17,7 +17,7 @@ def get_route_list(company: hketa.enums.Company,
                    terminal_name: Optional[str] = None,
                    ) -> std_response.StdResponse:
     route_list = (definition.ETA_FACTORY
-                  .create_company_data(company)
+                  .create_transport(company)
                   .route_list())
 
     if route:
@@ -51,7 +51,7 @@ def get_route_details(company: hketa.enums.Company,
                       route: str = None,
                       ) -> std_response.StdResponse:
     route_list = (definition.ETA_FACTORY
-                  .create_company_data(company)
+                  .create_transport(company)
                   .route_list())
 
     if route not in route_list.keys():
@@ -72,7 +72,7 @@ def get_stop_list(company: hketa.enums.Company,
             'route_name': route_name,
             'direction': direction,
             'service_type': service_type,
-            'stops': definition.ETA_FACTORY.create_company_data(company).stop_list(
+            'stops': definition.ETA_FACTORY.create_transport(company).stop_list(
                 hketa.models.RouteEntry(
                     company, route_name, direction, "", service_type, hketa.enums.Locale.TC
                 ))
@@ -86,7 +86,7 @@ def get_stop(company: hketa.enums.Company,
              direction: hketa.enums.Direction,
              service_type: str,
              stop_code: str) -> std_response.StdResponse:
-    stop_list = definition.ETA_FACTORY.create_company_data(company).stop_list(
+    stop_list = definition.ETA_FACTORY.create_transport(company).stop_list(
         hketa.models.RouteEntry(company, route_name, direction, "", service_type, hketa.enums.Locale.TC))
 
     for stop in stop_list:

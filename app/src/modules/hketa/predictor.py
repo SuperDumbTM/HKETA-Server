@@ -19,12 +19,12 @@ except (ImportError, ModuleNotFoundError):
     import api_async
 
 
-class KmbCtbPredictor:
+class KmbPredictor:
 
     _HEADS = ['co', 'route', 'dir', 'service_type', 'seq', 'dest_tc', 'dest_sc',
               'dest_en', 'eta_seq', 'eta', 'rmk_tc', 'rmk_sc', 'rmk_en', 'data_timestamp']
 
-    def __init__(self, directory: os.PathLike[str]) -> None:
+    def __init__(self, directory: os.PathLike[str],) -> None:
         self.root_dir = Path(str(directory))
         if not self.root_dir.exists():
             self.root_dir.mkdir()

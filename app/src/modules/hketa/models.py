@@ -33,12 +33,12 @@ class RouteInfo:
     inbound: list["Detail"] = Field(default_factory=list)
     outbound: list["Detail"] = Field(default_factory=list)
 
-    def bound_lookup(self, bound: enums.Direction) -> list["Detail"]:
+    def bound(self, bound: enums.Direction) -> list["Detail"]:
         return (self.inbound
                 if bound == enums.Direction.INBOUND else self.outbound)
 
     def service_lookup(self, bound: enums.Direction, service_type: str) -> "Detail":
-        for detail in self.bound_lookup(bound):
+        for detail in self.bound(bound):
             if detail.service_type == service_type:
                 return detail
         raise KeyError(f"service_type: {service_type}")

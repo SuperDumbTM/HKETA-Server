@@ -29,43 +29,28 @@ class EtaFactory:
         self.store = store
         self.threshold = threshold
 
-    def create_company_data(self, company: enums.Company) -> company_data.CompanyData:
-        match company:
-            case enums.Company.KMB:
-                return company_data.KMBData(self.data_path,
-                                            self.store,
-                                            self.threshold)
-            case enums.Company.MTRBUS:
-                return company_data.MTRBusData(self.data_path,
-                                               self.store,
-                                               self.threshold)
-            case enums.Company.MTRLRT:
-                return company_data.MTRLrtData(self.data_path,
-                                               self.store,
-                                               self.threshold)
-            case enums.Company.MTRTRAIN:
-                return company_data.MTRTrainData(self.data_path,
-                                                 self.store,
-                                                 self.threshold)
-            case enums.Company.CTB:
-                return company_data.CityBusData(self.data_path,
-                                                self.store,
-                                                self.threshold)
-            case _:
-                raise ValueError(f"Unrecognized company: {company}")
-
     def create_transport(self, company: enums.Company) -> transport.Transport:
         match company:
             case enums.Company.KMB:
-                return transport.KowloonMotorBus(self.create_company_data(company))
+                return transport.KowloonMotorBus(self.data_path,
+                                                 self.store,
+                                                 self.threshold)
             case enums.Company.MTRBUS:
-                return transport.MTRBus(self.create_company_data(company))
+                return transport.MTRBus(self.data_path,
+                                        self.store,
+                                        self.threshold)
             case enums.Company.MTRLRT:
-                return transport.MTRLightRail(self.create_company_data(company))
+                return transport.MTRLightRail(self.data_path,
+                                              self.store,
+                                              self.threshold)
             case enums.Company.MTRTRAIN:
-                return transport.MTRTrain(self.create_company_data(company))
+                return transport.MTRTrain(self.data_path,
+                                          self.store,
+                                          self.threshold)
             case enums.Company.CTB:
-                return transport.CityBus(self.create_company_data(company))
+                return transport.CityBus(self.data_path,
+                                         self.store,
+                                         self.threshold)
             case _:
                 raise ValueError(f"Unrecognized company: {company}")
 
@@ -74,27 +59,27 @@ class EtaFactory:
             case enums.Company.KMB:
                 return route.KMBRoute(
                     entry,
-                    self.create_company_data(entry.company)
+                    self.create_transport(entry.company)
                 )
             case enums.Company.MTRBUS:
                 return route.MTRBusRoute(
                     entry,
-                    self.create_company_data(entry.company)
+                    self.create_transport(entry.company)
                 )
             case enums.Company.MTRLRT:
                 return route.MTRLrtRoute(
                     entry,
-                    self.create_company_data(entry.company)
+                    self.create_transport(entry.company)
                 )
             case enums.Company.MTRTRAIN:
                 return route.MTRTrainRoute(
                     entry,
-                    self.create_company_data(entry.company)
+                    self.create_transport(entry.company)
                 )
             case enums.Company.CTB:
                 return route.BravoBusRoute(
                     entry,
-                    self.create_company_data(entry.company)
+                    self.create_transport(entry.company)
                 )
             case _:
                 raise ValueError(f"Unrecognized company: {entry.company}")
