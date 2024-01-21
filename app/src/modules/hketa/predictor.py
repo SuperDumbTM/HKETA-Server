@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from multiprocessing.pool import Pool, ThreadPool
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import aiohttp
 import pandas as pd
@@ -128,13 +128,30 @@ class KmbPredictor:
             .reset_index(drop=True) \
             .to_csv(filename, mode='w', index=True)
 
-    def raws_to_ml_dataset(self) -> None:
-        df = pd.read_csv(
-            self.root_dir.joinpath('raws.csv'), on_bad_lines='warn', low_memory=False, index_col=[0])
+    def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
+        if type_ != 'day' or type_ != 'night':
+            raise ValueError(f'Incorrect type: {type_}.')
+
+        df = pd.read_csv(self.root_dir.joinpath('raws.csv'),
+                         on_bad_lines='warn',
+                         low_memory=False,
+                         index_col=[0])
+
+        day_routes = df[~df['route'].str.startswith('N')]
+        night_routes = df[df['route'].str.startswith('N')]
+
+        if type_ == 'day':
+            df = day_routes
+            night_routes.to_csv(self.root_dir.joinpath(
+                'raws.csv'), mode='w', index=True)
+        else:
+            df = night_routes
+            day_routes.to_csv(self.root_dir.joinpath(
+                'raws.csv'), mode='w', index=True)
 
         with Pool(os.cpu_count() or 4) as pool:
             pool.starmap(self._process_raw_dataset,
-                         ([g for g in df.groupby('route')]))
+                         [g for g in df.groupby('route')])
 
     def _process_raw_dataset(self, route: str, df: pd.DataFrame) -> None:
         df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
