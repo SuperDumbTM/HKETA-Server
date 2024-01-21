@@ -29,7 +29,7 @@ def get_eta(company: hketa.enums.Company,
                 service_type=service_type,
                 lang=lang
             ))
-    except hketa.exceptions.StopNotExist as e:
+    except hketa.exceptions.StopNotExist:
         return std_response.StdResponse.fail(
             message="Stop not exists.",
             code=status_code.StatusCode.STOP_NOT_EXIST,
@@ -47,9 +47,9 @@ def get_eta(company: hketa.enums.Company,
 
     info = {
         'route': route_name,
-        'origin': provider.details.origin(),
-        'destination': provider.details.destination(),
-        'stop_name': provider.details.stop_name(),
+        'origin': provider.route.origin(),
+        'destination': provider.route.destination(),
+        'stop_name': provider.route.stop_name(),
         'lang': lang.value,
         'logo_url': f'/{company.value}/bw_neg/icon',
         'timestamp': datetime.datetime.now().isoformat(timespec="seconds"),

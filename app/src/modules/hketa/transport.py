@@ -81,6 +81,21 @@ class Transport(ABC):
         """Path to \"route\" data directory"""
         return self._root.joinpath('routes')
 
+    @classmethod
+    def _put_data_file(cls, path: os.PathLike, data) -> None:
+        """Write `data` to local file system.
+        """
+        path = Path(str(path))
+        if not path.parent.exists():
+            os.makedirs(path.parent)
+
+        with open(path, "w", encoding="utf-8") as f:
+            logging.info("Saving %s data to %s", type(cls).__name__, path)
+            json.dump({'last_update': _TODAY, 'data': data},
+                      f,
+                      indent=4,
+                      cls=_DataclassJSONEncoder)
+
     def __init__(self,
                  root: os.PathLike[str] = None,
                  store_local: bool = False,
@@ -155,19 +170,19 @@ class Transport(ABC):
         if not self.is_store:
             logging.info("Retiving %s route data (no store is set)",
                          entry.name)
-            return asyncio.run(self.fetch_stop_list(entry))
-
-        if self._is_outdated(fpath):
+            stops = asyncio.run(self.fetch_stop_list(entry))
+        elif self._is_outdated(fpath):
             logging.info("%s stop list cache is outdated, updating...",
                          entry.name)
 
             stops = asyncio.run(self.fetch_stop_list(entry))
             self._put_data_file(self.stops_list_dir.joinpath(self.route_fname(entry)),
                                 stops)
-        if "stops" not in locals():
+        else:
             with open(fpath, "r", encoding="utf-8") as f:
                 logging.debug("Loading %s stop list from %s",
-                              entry.name, fpath)
+                              entry.name,
+                              fpath)
                 stops = json.load(f)['data']
         return (models.RouteInfo.Stop(**stop) for stop in stops)
 
@@ -245,32 +260,6 @@ class Transport(ABC):
         """
         return f"{entry.name}-{entry.direction.value}-{entry.service_type}.json"
 
-    def origin(self, entry: models.RouteEntry):
-        try:
-            return self.routes[entry.name].bound(entry.direction)[0].orig.name[entry.lang]
-        except KeyError:
-            return "-----"
-
-    def orig_stopcode(self, entry: models.RouteEntry):
-        return self.routes[entry.name].bound(entry.direction)[0].orig.stop_code
-
-    def destination(self, entry: models.RouteEntry):
-        try:
-            return self.routes[entry.name].bound(entry.direction)[0].dest.name[entry.lang]
-        except KeyError:
-            return "-----"
-
-    def dest_stopcode(self, entry: models.RouteEntry):
-        return self.routes[entry.name].bound(entry.direction)[0].dest.stop_code
-
-    def stop_type(self, entry: models.RouteEntry) -> enums.StopType:
-        """Get the stop type of the stop"""
-        if self.orig_stopcode(entry) == entry.stop:
-            return enums.StopType.ORIG
-        if self.dest_stopcode(entry) == entry.stop:
-            return enums.StopType.DEST
-        return enums.StopType.STOP
-
     def _is_outdated(self, fpath: os.PathLike) -> bool:
         """Determine whether a data file is outdated.
 
@@ -287,20 +276,6 @@ class Transport(ABC):
                 return (datetime.utcnow() - lastupd).days > self.threshold
         else:
             return True
-
-    def _put_data_file(self, path: os.PathLike, data) -> None:
-        """Write `data` to local file system.
-        """
-        path = Path(str(path))
-        if not path.parent.exists():
-            os.makedirs(path.parent)
-
-        with open(path, "w", encoding="utf-8") as f:
-            logging.info("Saving %s data to %s", type(self).__name__, path)
-            json.dump({'last_update': _TODAY, 'data': data},
-                      f,
-                      indent=4,
-                      cls=_DataclassJSONEncoder)
 
 
 @singleton
