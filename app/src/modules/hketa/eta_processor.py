@@ -272,7 +272,8 @@ class MtrTrainEta(EtaProcessor):
 
             etas.append(models.Eta(
                 company=enums.Company.MTRTRAIN,
-                destination=self.route.stop_name_by_code(entry['dest']),
+                destination=self.route.stop_details(
+                    entry['dest']).name[entry.lang],
                 is_arriving=False,
                 eta=entry["time"],
                 eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
@@ -282,9 +283,9 @@ class MtrTrainEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api_async.mtr_train_eta(self.linename,
-                                                 self.route.entry.stop,
-                                                 self.route.entry.lang)
+        response = await api_async.nlb_eta(self.linename,
+                                           self.route.entry.stop,
+                                           self.route.entry.lang)
         if len(response) == 0:
             raise exceptions.APIError
         if response.get('status', 0) == 0:
@@ -346,3 +347,52 @@ class BravoBusEta(EtaProcessor):
         if len(response['data']) == 0:
             raise exceptions.EmptyDataError
         return response
+
+
+class NlbEta(EtaProcessor):
+
+    _bound_map = {"inbound": "UP", "outbound": "DOWN"}
+
+    def __init__(self, route: Route) -> None:
+        super().__init__(route)
+        self.linename = self.route.entry.no.split("-")[0]
+        self.direction = self._bound_map[self.route.entry.direction]
+
+    def etas(self) -> dict:
+        response = asyncio.run(self.raw_etas())
+        timestamp = self._parse_iostime(response["curr_time"])
+        etas = []
+
+        etadata = response['data'][f'{self.linename}-{self.route.entry.stop}'].get(
+            self.direction, [])
+        # for entry in etadata:
+        #     eta_dt = datetime.datetime.fromisoformat(entry["time"])
+
+        #     etas.append(models.Eta(
+        #         company=enums.Company.MTRTRAIN,
+        #         destination=self.route.stop_name_by_code(entry['dest']),
+        #         is_arriving=False,
+        #         eta=entry["time"],
+        #         eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
+        #         extras=models.Eta.ExtraInfo(platform=entry['plat'])
+        #     ))
+
+        return etas
+
+    async def raw_etas(self) -> dict[str | int]:
+        response = await api_async.mtr_train_eta(self.linename,
+                                                 self.route.entry.stop,
+                                                 self.route.entry.lang)
+        if len(response) == 0:
+            raise exceptions.APIError
+        if response.get('status', 0) == 0:
+            if "suspended" in response['message']:
+                raise exceptions.StationClosed
+            if response.get('url') is not None:
+                raise exceptions.AbnormalService
+            raise exceptions.APIError
+
+        if response['data'][f'{self.linename}-{self.route.entry.stop}'].get(self.direction) is None:
+            raise exceptions.EmptyDataError
+        else:
+            return response

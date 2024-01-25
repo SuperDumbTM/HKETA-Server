@@ -122,9 +122,6 @@ class Transport(ABC):
     def logo(self) -> io.BufferedReader:
         """Get the company logo in bytes"""
 
-    def stop_details(self, entry: models.RouteEntry) -> models.RouteInfo.Stop:
-        """Get the specific stop detail of a route."""
-
     @abstractmethod
     async def fetch_route_list(self) -> dict[str, dict[str, list]]:
         """Fetch the route list and route details from API

@@ -42,6 +42,36 @@ async def kmb_eta(route: str,
             return await response.json()
 
 
+async def nlb_eta(route_id: str,
+                  stop_id: str | int,
+                  language: Literal['en', 'zh', 'cn'] = 'en',
+                  session: aiohttp.ClientSession = None) -> dict:
+    """
+    Fetche NLB buses ETA from `Bus estimated arrivals of a stop of a route` API
+
+    NLB API(s): https://data.gov.hk/tc-data/dataset/nlb-bus-nlb-bus-service-v2
+
+    Returns:
+        dict: see https://www.nlb.com.hk/datagovhk/BusServiceOpenAPIDocumentation2.0.pdf
+
+    Raises:
+        aiohttp.ClientError: An error occurred when making the HTTP request
+    """
+    url = "https://rt.data.gov.hk/v2/transport/nlb/stop.php"
+    params = {
+        'action': "estimatedArrivals",
+        'routeId': route_id,
+        'stopId': stop_id,
+        'language': language,
+    }
+    if session is None:
+        async with aiohttp.request('GET', url, params=params, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, params=params, raise_for_status=True) as response:
+            return await response.json()
+
+
 async def mtr_bus_eta(route: str,
                       lang: Literal["zh", "en"],
                       session: aiohttp.ClientSession = None) -> dict:

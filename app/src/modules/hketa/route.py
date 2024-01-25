@@ -74,9 +74,8 @@ class Route:
         """Get the stop sequence of the route"""
         return self._stop_list[self._entry.stop].seq
 
-    def stop_name_by_code(self, stop_code: str) -> str:
-        """Get the stop name by `stop_code`"""
-        return self._stop_list[stop_code].name[self._entry.lang]
+    def stop_details(self, stop_code: str) -> models.RouteInfo.Stop:
+        return self._stop_list[stop_code]
 
     def origin(self) -> models.RouteInfo.Stop:
         return list(self._stop_list.values())[0]
