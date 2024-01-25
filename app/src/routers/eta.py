@@ -1,5 +1,4 @@
 import datetime
-from typing import Optional
 
 from fastapi import APIRouter
 
@@ -11,30 +10,26 @@ from app.src.modules import hketa
 router = APIRouter(prefix="")
 
 
-@router.get("/{company}/{route_name}/{direction}/etas")
+@router.get("/eta/{company}/{route_no}")
 def get_eta(company: hketa.enums.Company,
-            route_name: str,
+            route_no: str,
             direction: hketa.enums.Direction,
-            stop: str,
-            service_type: Optional[str | int] = None,
+            stop_code: str,
+            service_type: str,
             lang: hketa.enums.Locale = hketa.enums.Locale.TC):
 
     try:
         provider = definition.ETA_FACTORY.create_eta_processor(
             hketa.models.RouteEntry(
-                company=company,
-                name=route_name,
-                direction=direction,
-                stop=stop,
-                service_type=service_type,
-                lang=lang
-            ))
+                company=company, no=route_no, direction=direction,
+                stop=stop_code, service_type=service_type, lang=lang,)
+        )
     except hketa.exceptions.StopNotExist:
         return std_response.StdResponse.fail(
             message="Stop not exists.",
             code=status_code.StatusCode.STOP_NOT_EXIST,
             data={
-                'route': route_name,
+                'route': route_no,
                 'origin': None,
                 'destination': None,
                 'stop_name': None,
@@ -46,7 +41,7 @@ def get_eta(company: hketa.enums.Company,
         )
 
     info = {
-        'route': route_name,
+        'route': route_no,
         'origin': provider.route.origin(),
         'destination': provider.route.destination(),
         'stop_name': provider.route.stop_name(),

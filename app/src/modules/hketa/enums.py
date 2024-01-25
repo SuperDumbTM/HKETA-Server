@@ -24,6 +24,7 @@ class Company(str, Enum):
     MTRTRAIN = "mtr_train"
     CTB = "ctb"
     NWFB = "nwfb"
+    NLB = "nlb"
 
     def description(self, language: Locale = Locale.TC) -> str:
         if language == Locale.EN:
@@ -33,13 +34,15 @@ class Company(str, Enum):
                 case Company.MTRLRT: return "MTR (Light Rail)"
                 case Company.MTRTRAIN: return "MTR"
                 case Company.CTB: return "City Bus"
+                case Company.NLB: return "New Lantao Bus"
         else:
             match self:
                 case Company.KMB: return "九巴"
-                case Company.MTRBUS: return "港鐵巴宜"
+                case Company.MTRBUS: return "港鐵巴士"
                 case Company.MTRLRT: return "輕鐵"
                 case Company.MTRTRAIN: return "港鐵"
                 case Company.CTB: return "城巴"
+                case Company.NLB: return "新大嶼山巴士"
 
 
 class Direction(str, Enum):

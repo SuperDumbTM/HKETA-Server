@@ -49,6 +49,10 @@ class EtaFactory:
                 return transport.CityBus(self.data_path,
                                          self.store,
                                          self.threshold)
+            case enums.Company.NLB:
+                return transport.NewLantaoBus(self.data_path,
+                                              self.store,
+                                              self.threshold)
             case _:
                 raise ValueError(f"Unrecognized company: {company}")
 
@@ -64,5 +68,7 @@ class EtaFactory:
                 return eta_processor.MtrTrainEta(route.Route(entry, self.create_transport(entry.company)))
             case enums.Company.CTB | enums.Company.NWFB:
                 return eta_processor.BravoBusEta(route.Route(entry, self.create_transport(entry.company)))
+            case enums.Company.NLB:
+                return NotImplementedError
             case _:
                 raise ValueError(f"Unrecognized company: {entry.company}")

@@ -10,18 +10,18 @@ from app.src.modules import hketa
 router = APIRouter()
 
 
-@router.get("/{company}/routes")
+@router.get("/routes/{company}")
 def get_route_list(company: hketa.enums.Company,
-                   route: Optional[str] = None,
+                   route_no: Optional[str] = None,
                    service_type: Optional[str | int] = None,
                    terminal_name: Optional[str] = None,
                    ) -> std_response.StdResponse:
-    route_list = (definition.ETA_FACTORY
-                  .create_transport(company)
-                  .route_list())
+    route_list = definition.ETA_FACTORY \
+        .create_transport(company) \
+        .route_list()
 
-    if route:
-        route_list = {route: route_list[route]}
+    if route_no:
+        route_list = {route_no: route_list[route_no]}
 
     if service_type:
         for route_name in list(route_list.keys()):
@@ -46,55 +46,53 @@ def get_route_list(company: hketa.enums.Company,
     return std_response.StdResponse.success_(data={'routes': route_list})
 
 
-@router.get("/{company}/{route}")
+@router.get("/services/{company}/{route_no}")
 def get_route_details(company: hketa.enums.Company,
-                      route: str = None,
+                      route_no: str = None,
                       ) -> std_response.StdResponse:
-    route_list = (definition.ETA_FACTORY
-                  .create_transport(company)
-                  .route_list())
+    route_list = definition.ETA_FACTORY \
+        .create_transport(company) \
+        .route_list()
 
-    if route not in route_list.keys():
+    if route_no not in route_list.keys():
         # TODO: handle route not exists
         pass
-    return std_response.StdResponse.success_(data=asdict(route_list[route.upper()]))
+    return std_response.StdResponse.success_(data=asdict(route_list[route_no.upper()]))
 
 
-@router.get("/{company}/{route_name}/{direction}/{service_type}/stops")
+@router.get("/stops/{company}/{route_no}")
 def get_stop_list(company: hketa.enums.Company,
-                  route_name: str,
+                  route_no: str,
                   direction: hketa.enums.Direction,
                   service_type: str) -> std_response.StdResponse:
-
+    transport_ = definition.ETA_FACTORY.create_transport(company)
     return std_response.StdResponse.success_(
         data={
             'company': company,
-            'route_name': route_name,
+            'route_name': route_no,
             'direction': direction,
             'service_type': service_type,
-            'stops': definition.ETA_FACTORY.create_transport(company).stop_list(
-                hketa.models.RouteEntry(
-                    company, route_name, direction, "", service_type, hketa.enums.Locale.TC
-                ))
+            'stops': transport_.stop_list(route_no, direction, service_type)
         }
     )
 
 
-@router.get("/{company}/{route_name}/{direction}/{service_type}/stop")
+@router.get("/stop/{company}/{route_name}")
 def get_stop(company: hketa.enums.Company,
-             route_name: str,
+             route_no: str,
              direction: hketa.enums.Direction,
              service_type: str,
              stop_code: str) -> std_response.StdResponse:
-    stop_list = definition.ETA_FACTORY.create_transport(company).stop_list(
-        hketa.models.RouteEntry(company, route_name, direction, "", service_type, hketa.enums.Locale.TC))
+    stop_list = definition.ETA_FACTORY \
+        .create_transport(company) \
+        .stop_list(route_no, direction, service_type)
 
     for stop in stop_list:
         if stop.stop_code == stop_code:
             return std_response.StdResponse.success_(
                 data={
                     'company': company,
-                    'route_name': route_name,
+                    'route_name': route_no,
                     'direction': direction,
                     'service_type': service_type,
                     'stop': asdict(stop, dict_factory=utils.custom_asdict_factory)

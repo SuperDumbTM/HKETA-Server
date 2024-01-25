@@ -15,21 +15,21 @@ except (ImportError, ModuleNotFoundError):
 class RouteEntry:
 
     company: enums.Company
-    name: str
+    no: str
     direction: enums.Direction
     stop: str
     service_type: str
     lang: enums.Locale
 
     def __post_init__(self):
-        self.name = str(self.name).upper()
+        self.no = str(self.no).upper()
 
 
 @dataclass(slots=True)
 class RouteInfo:
 
     company: enums.Company
-    name: str
+    route_no: str
     inbound: list["Detail"] = Field(default_factory=list)
     outbound: list["Detail"] = Field(default_factory=list)
 
@@ -41,7 +41,7 @@ class RouteInfo:
         for detail in self.bound(bound):
             if detail.service_type == service_type:
                 return detail
-        raise KeyError(f"service_type: {service_type}")
+        raise KeyError(f"Invalid service type: {service_type}")
 
     @dataclass(slots=True, frozen=True)
     class Stop:
@@ -54,8 +54,9 @@ class RouteInfo:
     class Detail:
 
         service_type: str
-        orig: Optional["RouteInfo.Stop"]
-        dest: Optional["RouteInfo.Stop"]
+        route_id: Optional[str] = None
+        orig: Optional["RouteInfo.Stop"] = None
+        dest: Optional["RouteInfo.Stop"] = None
 
 
 @dataclass(slots=True, frozen=True)

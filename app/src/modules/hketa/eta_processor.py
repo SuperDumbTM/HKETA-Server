@@ -112,7 +112,7 @@ class KmbEta(EtaProcessor):
 
     async def raw_etas(self) -> dict[str | int]:
         response = await api_async.kmb_eta(
-            self.route.entry.name, self.route.entry.service_type)
+            self.route.entry.no, self.route.entry.service_type)
 
         if len(response) == 0:
             raise exceptions.APIError
@@ -202,7 +202,7 @@ class MtrLrtEta(EtaProcessor):
             for eta in platform.get("route_list", []):
                 # 751P have no destination and eta
                 destination = eta.get(f'dest_{lang_code}')
-                if (eta['route_no'] != self.route.entry.name
+                if (eta['route_no'] != self.route.entry.no
                         or destination != self.route.destination()):
                     continue
 
@@ -257,7 +257,7 @@ class MtrTrainEta(EtaProcessor):
 
     def __init__(self, route: Route) -> None:
         super().__init__(route)
-        self.linename = self.route.entry.name.split("-")[0]
+        self.linename = self.route.entry.no.split("-")[0]
         self.direction = self._bound_map[self.route.entry.direction]
 
     def etas(self) -> dict:
@@ -340,7 +340,7 @@ class BravoBusEta(EtaProcessor):
     async def raw_etas(self) -> dict[str | int]:
         response = await api_async.bravobus_eta(self.route.entry.company.value,
                                                 self.route.entry.stop,
-                                                self.route.entry.name)
+                                                self.route.entry.no)
         if len(response) == 0 or response.get('data') is None:
             raise exceptions.APIError
         if len(response['data']) == 0:

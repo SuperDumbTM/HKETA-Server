@@ -45,7 +45,8 @@ class Route:
         self._entry = entry
         self._provider = transport_
 
-        stop_list = tuple(self._provider.stop_list(self._entry))
+        stop_list = tuple(
+            self._provider.stop_list(entry.no, entry.direction, entry.service_type))
         self._stop_list = {
             stop: data
             for stop, data in zip((stop.stop_code for stop in stop_list),
@@ -63,7 +64,7 @@ class Route:
         """Get the route name of the `entry`"""
         if isinstance(self._provider, transport.MTRTrain):
             return MTR_TRAIN_NAMES.get(self._entry.stop, self._entry.stop)
-        return self._entry.name
+        return self._entry.no
 
     def stop_name(self) -> str:
         """Get the stop name of the route"""
@@ -77,28 +78,28 @@ class Route:
         """Get the stop name by `stop_code`"""
         return self._stop_list[stop_code].name[self._entry.lang]
 
-    def origin(self):
-        try:
-            return list(self._stop_list.values())[0].name[self._entry.lang]
-        except KeyError:
-            return "-----"
+    def origin(self) -> models.RouteInfo.Stop:
+        return list(self._stop_list.values())[0]
 
-    def orig_stopcode(self):
-        return list(self._stop_list.values())[0].name
+    def destination(self) -> models.RouteInfo.Stop:
+        target = list(self._stop_list.values())[-1]
 
-    def destination(self):
-        try:
-            return list(self._stop_list.values())[-1].name[self._entry.lang]
-        except KeyError:
-            return "-----"
-
-    def dest_stopcode(self):
-        return list(self._stop_list.values())[-1].name
+        # NOTE: in/outbound of circular routes are NOT its destination
+        # NOTE: 705, 706 return "天水圍循環綫"/'TSW Circular' instead of its destination
+        if self.entry.no in ("705", "706"):
+            return models.RouteInfo.Stop(stop_code=target.stop_code,
+                                         seq=target.seq,
+                                         name={
+                                             enums.Locale.EN: "TSW Circular",
+                                             enums.Locale.TC: "天水圍循環綫"
+                                         })
+        else:
+            return target
 
     def stop_type(self) -> enums.StopType:
         """Get the stop type of the stop"""
-        if self.orig_stopcode() == self._entry.stop:
+        if self.origin().stop_code == self._entry.stop:
             return enums.StopType.ORIG
-        if self.dest_stopcode() == self._entry.stop:
+        if self.destination().stop_code == self._entry.stop:
             return enums.StopType.DEST
         return enums.StopType.STOP

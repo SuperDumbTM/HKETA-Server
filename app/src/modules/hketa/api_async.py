@@ -460,3 +460,50 @@ async def bravobus_stop_details(stop_id: str,
     else:
         async with session.get(url, raise_for_status=True) as response:
             return await response.json()
+
+
+async def nlb_route_list(session: aiohttp.ClientSession = None) -> dict:
+    """Fetch NLB available route list from `Route List Data` API
+
+    NLB API(s): https://data.gov.hk/en-data/dataset/nlb-bus-nlb-bus-service-v2
+
+    Args:
+        session (aiohttp.ClientSession, optional): client session for HTTP connections
+
+    Returns:
+        dict: see https://data.etabus.gov.hk/datagovhk/kmb_eta_data_dictionary.pdf
+
+    Raises:
+        aiohttp.ClientError: An error occurred when making the HTTP request
+    """
+    url = "https://rt.data.gov.hk/v2/transport/nlb/route.php?action=list"
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
+
+
+async def nlb_route_stop_list(route_id: str,
+                              session: aiohttp.ClientSession = None) -> dict:
+    """Fetch NLB stop list (by route) from `Route-Stop Data` API
+
+    NLB API(s): https://data.gov.hk/en-data/dataset/nlb-bus-nlb-bus-service-v2
+
+    Args:
+        session (aiohttp.ClientSession, optional): client session for HTTP connections
+
+    Returns:
+        dict: see https://data.etabus.gov.hk/datagovhk/kmb_eta_data_dictionary.pdf
+
+    Raises:
+        aiohttp.ClientError: An error occurred when making the HTTP request
+    """
+    url = f"https://rt.data.gov.hk/v2/transport/nlb/stop.php?action=list&routeId={route_id}"
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
