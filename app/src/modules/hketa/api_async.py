@@ -64,6 +64,7 @@ async def nlb_eta(route_id: str,
         'stopId': stop_id,
         'language': language,
     }
+
     if session is None:
         async with aiohttp.request('GET', url, params=params, raise_for_status=True) as response:
             return await response.json()

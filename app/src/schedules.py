@@ -14,6 +14,7 @@ scheduler = None
 
 @router.on_event("startup")
 def init_scheduler():
+    return  # DEBUG
     global scheduler
     jobstores = {
         "default": MemoryJobStore(),

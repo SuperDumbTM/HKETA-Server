@@ -65,13 +65,19 @@ class Eta:
     company: enums.Company
     destination: str
     is_arriving: bool
-    eta: Optional[str]
-    eta_minute: Optional[int]
+    """Indicate whether the vehicle in the vincity of to the stop.
+    """
+    is_scheduled: bool
+    """Indicate whether the ETA is based on realtime information or based on schedule.
+    """
+    eta: Optional[str] = None
+    eta_minute: Optional[int] = None
     remark: Optional[str] = None
     extras: "Eta.ExtraInfo" = Field(default_factory=lambda: Eta.ExtraInfo())
 
     @dataclass(slots=True, frozen=True)
     class ExtraInfo:
 
-        platform: Optional[int] = None
+        platform: Optional[str] = None
         car_length: Optional[int] = None
+        route_variant: Optional[str] = None
