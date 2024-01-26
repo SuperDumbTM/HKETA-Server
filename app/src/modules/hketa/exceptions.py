@@ -33,8 +33,17 @@ class AbnormalService(HketaException):
     """Special service arrangement is in effect"""
 
 
-class RouteNotExist(HketaException):
+class RouteError(HketaException):
+    """Invalid route"""
+
+
+class RouteNotExist(RouteError):
     """Invalid route name/number"""
 
-class StopNotExist(HketaException):
+
+class StopNotExist(RouteError):
     """Invalid stop code/ Stop not exists"""
+
+
+class ServiceTypeNotExist(RouteError):
+    """Invalid srervice type"""

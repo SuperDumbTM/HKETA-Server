@@ -31,3 +31,6 @@ class StatusCode(str, Enum):
 
     STOP_NOT_EXIST = "stop-not-exist"
     """Invalid stop code"""
+
+    SERVICE_NOT_EXIST = "service-not-exist"
+    """Invalid service type"""

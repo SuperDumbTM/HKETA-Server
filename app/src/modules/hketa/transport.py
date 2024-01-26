@@ -353,6 +353,9 @@ class KowloonMotorBus(Transport):
                               route_no: str,
                               direction: enums.Direction,
                               service_type: str) -> dict:
+        if route_no not in self.routes.keys():
+            raise exceptions.RouteNotExist(route_no)
+
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             """Fetch `stop_code`, `seq`, `name` of the 'stop'
             """
@@ -373,7 +376,7 @@ class KowloonMotorBus(Transport):
             stops = await asyncio.gather(
                 *[fetch_stop_details(session, stop) for stop in stop_list['data']])
         if len(stops) == 0:
-            raise exceptions.RouteNotExist(
+            raise exceptions.RouteError(
                 f"{route_no}/{direction.value}/{service_type}")
         return stops
 
@@ -432,8 +435,7 @@ class MTRBus(Transport):
                               direction: enums.Direction,
                               service_type: str) -> dict:
         if (service_type != "default"):
-            raise exceptions.RouteNotExist(
-                f"Invalid service type: {service_type}")
+            raise exceptions.ServiceTypeNotExist(service_type)
 
         async with aiohttp.ClientSession() as session:
             apidata = csv.reader(await api_async.mtr_bus_stop_list(session))
@@ -442,7 +444,7 @@ class MTRBus(Transport):
                  if stop[0] == route_no and self._bound_map[stop[1]] == direction]
 
         if len(stops) == 0:
-            raise exceptions.RouteNotExist()
+            raise exceptions.RouteNotExist(route_no)
         return [{'stop_code': stop[3],
                  'seq': int(stop[2].strip(".00")),
                  'name': {enums.Locale.TC: stop[6], enums.Locale.EN: stop[7]}
@@ -503,8 +505,9 @@ class MTRLightRail(Transport):
                               direction: enums.Direction,
                               service_type: str) -> dict:
         if (service_type != "default"):
-            raise exceptions.RouteNotExist(
-                f"Invalid service type: {service_type}")
+            raise exceptions.ServiceTypeNotExist(service_type)
+        if route_no not in self.routes.keys():
+            raise exceptions.RouteNotExist(route_no)
 
         apidata = csv.reader(await api_async.mtr_lrt_route_stop_list())
         stops = [stop for stop in apidata
@@ -581,8 +584,9 @@ class MTRTrain(Transport):
                               direction: enums.Direction,
                               service_type: str) -> dict:
         if (service_type != "default"):
-            raise exceptions.RouteNotExist(
-                f"Invalid service type: {service_type}")
+            raise exceptions.ServiceTypeNotExist(service_type)
+        if route_no not in self.routes.keys():
+            raise exceptions.RouteNotExist(route_no)
 
         apidata = csv.reader(await api_async.mtr_train_route_stop_list())
 
@@ -672,8 +676,9 @@ class CityBus(Transport):
                               direction: enums.Direction,
                               service_type: str) -> dict:
         if (service_type != "default"):
-            raise exceptions.RouteNotExist(
-                f"Invalid service type: {service_type}")
+            raise exceptions.ServiceTypeNotExist(service_type)
+        if route_no not in self.routes.keys():
+            raise exceptions.RouteNotExist(route_no)
 
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             """Fetch `stop_code`, `seq`, `name` of the 'stop'
@@ -782,6 +787,10 @@ class NewLantaoBus(Transport):
                               route_no: str,
                               direction: enums.Direction,
                               service_type: str) -> list[dict[str, Any]]:
+        # TODO: service type checking
+        if route_no not in self.routes.keys():
+            raise exceptions.RouteNotExist(route_no)
+
         if isinstance(direction, str):
             direction = enums.Direction(direction)
         # route ID lookup

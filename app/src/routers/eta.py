@@ -24,10 +24,16 @@ def get_eta(company: hketa.enums.Company,
                 company=company, no=route_no, direction=direction,
                 stop=stop_code, service_type=service_type, lang=lang,)
         )
-    except hketa.exceptions.StopNotExist:
+    except hketa.exceptions.RouteError as e:
+        if isinstance(e, hketa.exceptions.StopNotExist):
+            code = status_code.StatusCode.STOP_NOT_EXIST
+        elif isinstance(e, hketa.exceptions.ServiceTypeNotExist):
+            code = status_code.StatusCode.SERVICE_NOT_EXIST
+        else:
+            code = status_code.StatusCode.ROUTE_NOT_EXIST
         return std_response.StdResponse.fail(
-            message="Stop not exists.",
-            code=status_code.StatusCode.STOP_NOT_EXIST,
+            message="Invalid route composion.",
+            code=code,
             data={
                 'route': route_no,
                 'origin': None,
@@ -88,7 +94,7 @@ def get_eta(company: hketa.enums.Company,
             code=status_code.StatusCode.ETA_STOP_CLOSED,
             data=info
         )
-    except hketa.exceptions.RouteNotExist as e:
+    except hketa.exceptions.RouteError as e:
         return std_response.StdResponse.fail(
             message=str(e),
             code=status_code.StatusCode.ROUTE_NOT_EXIST,
