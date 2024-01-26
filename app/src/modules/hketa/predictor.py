@@ -1,24 +1,104 @@
 from abc import ABC, abstractmethod
 import asyncio
-import json
+import glob
 import math
 import os
 from datetime import datetime, timedelta
-from multiprocessing.pool import Pool, ThreadPool
+from multiprocessing.pool import Pool
 from pathlib import Path
 from typing import Literal, Optional
 
 import aiohttp
 import pandas as pd
-import pytz
 import sklearn.tree
 
 try:
-    from app.src.modules.hketa import api, api_async, transport
+    from app.src.modules.hketa import api_async, transport
 except (ImportError, ModuleNotFoundError):
-    import api
     import api_async
     import transport
+
+
+def _write_raw_csv_worker(path: Path, headers: list[str], etas: list) -> None:
+    if not os.path.exists(path):
+        old_df = pd.DataFrame(columns=headers)
+    else:
+        old_df = pd.read_csv(path, index_col=0, low_memory=True)
+
+    df = pd.DataFrame([eta for eta in etas if eta['eta'] is not None],
+                      columns=headers,)
+
+    if len(df) == 0:
+        return
+    pd.concat([old_df, df[df['eta_seq'] == 1]]) \
+        .reset_index(drop=True) \
+        .to_csv(path, mode='w', index=True)
+
+
+def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
+    for _, group in df.groupby('stop'):
+        schedules = []
+        last_tta, last_timestamp = float('inf'), None
+
+        for row in group.itertuples():
+            if row.tta > last_tta:
+                for index, eta in schedules:
+                    error = (eta - last_timestamp).total_seconds()
+                    if math.isnan(error) or abs(error) > 7200:
+                        # 1. malformated timestamp will result int float('nan')
+                        # 2. ignore unusual TTA
+                        continue
+                    df.loc[index, ['accuracy']] = round(error / 60)
+                schedules = []
+                last_tta, last_timestamp = float('inf'), None
+
+            schedules.append((row.Index, row.eta))
+            last_tta = row.tta
+            last_timestamp = row.data_timestamp
+    return df
+
+
+def _ml_dataset_clean_n_join(df: pd.DataFrame, filepath: Path) -> None:
+    _calculate_etas_error(df) \
+        .drop(columns=['dir', 'eta', 'data_timestamp'], errors='ignore') \
+        .drop(df[df['accuracy'] == ''].index, errors='ignore') \
+        .to_csv(filepath, mode='a', index=False, header=not filepath.exists())
+
+
+def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
+    df = pd.read_csv(raw_path,
+                     on_bad_lines='warn',
+                     low_memory=False,
+                     index_col=[0])
+
+    df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
+        .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
+
+    df = df.assign(year=df['data_timestamp'].dt.year,
+                   month=df['data_timestamp'].dt.month,
+                   day=df['data_timestamp'].dt.day,
+                   hour=df['data_timestamp'].dt.hour,
+                   minute=df['data_timestamp'].dt.minute,
+                   # second=raw['data_timestamp'].dt.second,
+                   eta_hour=df['eta'].dt.hour,
+                   eta_minute=df['eta'].dt.minute,
+                   # eta_second=raw['eta'].dt.second,
+                   is_scheduled=(df['rmk_en'] ==
+                                 'Scheduled Bus').astype(int),
+                   is_weekend=(
+        df['data_timestamp'].dt.weekday >= 5).astype(int),
+        tta=(df['eta'] - df['data_timestamp']
+             ).dt.total_seconds(),
+        accuracy='') \
+        .drop(columns=['co', 'eta_seq', 'dest_tc', 'dest_sc', 'dest_en', 'weather',
+                       'service_type', 'route', 'rmk_tc', 'rmk_sc', 'rmk_en',],
+              errors='ignore') \
+        .rename({'seq': 'stop'}, axis=1)
+
+    _ml_dataset_clean_n_join(
+        df[df['dir'] == 'O'], out_dir.joinpath(f'{route}_outbound.csv'))
+    _ml_dataset_clean_n_join(
+        df[df['dir'] == 'I'], out_dir.joinpath(f'{route}_inbound.csv'))
 
 
 class Predictor(ABC):
@@ -33,8 +113,10 @@ class Predictor(ABC):
 
         if not self.root_dir.exists():
             os.makedirs(self.root_dir)
+        if not self.raws_dir.exists():
+            os.makedirs(self.raws_dir)
 
-    def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
+    def _calculate_etas_error(self, df: pd.DataFrame) -> pd.DataFrame:
         for _, group in df.groupby('stop'):
             schedules = []
             last_tta, last_timestamp = float('inf'), None
@@ -73,7 +155,7 @@ class KmbPredictor(Predictor):
         if not path.exists():
             return None
 
-        df = pd.read_csv(path)
+        df = pd.read_csv(path, low_memory=True)
         values = [{
             'seq': seq,
             'year': data_timestamp.year,
@@ -91,129 +173,56 @@ class KmbPredictor(Predictor):
         model.fit(df.values[:-2], df.values[:-1])
         return model.predict(values)
 
-    def fetch_dataset(self) -> None:
-        def entry_cleaning(eta: dict) -> dict:
-            try:
-                # malformed data_timestamp is save to be replaced by the current time
-                # while eta not, which will be ignore later at `process_raw_dataset`
-                datetime.fromisoformat(eta['data_timestamp'])
-            except (ValueError, TypeError):
-                eta['data_timestamp'] = datetime.now(
-                    pytz.timezone('Asia/Hong_kong')).isoformat(timespec='seconds')
+    async def fetch_dataset(self) -> None:
+        async def eta_with_route(r: str, s: aiohttp.ClientSession):
+            return r, (await api_async.kmb_eta(r, 1, s))['data']
 
-            return eta
+        async with aiohttp.ClientSession() as s:
+            results = await asyncio.gather(*[
+                eta_with_route(r, s) for r in self.transport_.routes.keys()
+            ])
 
-        async def fetch():
-            async with aiohttp.ClientSession() as s:
-                return await asyncio.gather(*[
-                    api_async.kmb_eta(r, 1, s) for r in routes
-                ])
-
-        with open(Path(__file__).parent.joinpath('kmb.json'), 'r', encoding='utf-8') as f:
-            routes = json.load(f)
-
-        # async with aiohttp.ClientSession() as s:
-        #     results = await asyncio.gather(*[
-        #         api_async.kmb_eta(r, 1, s) for r in routes
-        #     ])
-        results = asyncio.run(fetch())
-
-        filename = self.root_dir.joinpath('raws.csv')
-        if not os.path.exists(filename):
-            old_df = pd.DataFrame(columns=self._HEADS)
-        else:
-            old_df = pd.read_csv(filename, index_col=0)
-
-        df = pd.DataFrame(
-            [entry_cleaning(eta)
-                for eta in (eta for route in results for eta in route['data'])
-                if eta['eta'] is not None],
-            columns=self._HEADS)
-
-        pd.concat([old_df, df[df['eta_seq'] == 1]]) \
-            .reset_index(drop=True) \
-            .to_csv(filename, mode='w', index=True)
+        import time
+        with Pool(os.cpu_count() or 4, maxtasksperchild=50) as pool:
+            for i in range(1080):
+                start = time.time()
+                pool.starmap(_write_raw_csv_worker,
+                             ((self.raws_dir.joinpath(f'{r}.csv'), self._HEADS, data) for r, data in results))
+                print(f'@{i}:\t{time.time() - start}')
 
     def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
-        if type_ != 'day' or type_ != 'night':
+        if type_ != 'day' and type_ != 'night':
             raise ValueError(f'Incorrect type: {type_}.')
 
-        df = pd.read_csv(self.root_dir.joinpath('raws.csv'),
-                         on_bad_lines='warn',
-                         low_memory=False,
-                         index_col=[0])
+        for fname in glob.glob('*.csv', root_dir=self.raws_dir):
+            if (type_ == 'day' and fname.startswith('N')
+                    or type_ == 'night' and not fname.startswith('N')
+                    or '_copy' in fname):
+                continue
+            os.replace(self.raws_dir.joinpath(fname),
+                       self.raws_dir.joinpath(f'{fname.removesuffix(".csv")}_copy.csv'))
 
-        day_routes = df[~df['route'].str.startswith('N')]
-        night_routes = df[df['route'].str.startswith('N')]
-
-        if type_ == 'day':
-            df = day_routes
-            night_routes.to_csv(self.root_dir.joinpath(
-                'raws.csv'), mode='w', index=True)
-        else:
-            df = night_routes
-            day_routes.to_csv(self.root_dir.joinpath(
-                'raws.csv'), mode='w', index=True)
-
+        raw_paths = glob.glob('*_copy.csv', root_dir=self.raws_dir)
         with Pool(os.cpu_count() or 4) as pool:
-            pool.starmap(self._process_raw_dataset,
-                         [g for g in df.groupby('route')])
+            pool.starmap(_kmb_raw_2_dataset_worker,
+                         [(Path(fn.replace('_copy', '')).stem, self.raws_dir.joinpath(fn), self.root_dir)
+                          for fn in raw_paths])
 
-    def _process_raw_dataset(self, route: str, df: pd.DataFrame) -> None:
-        df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
-            .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
-
-        df = df.assign(year=df['data_timestamp'].dt.year,
-                       month=df['data_timestamp'].dt.month,
-                       day=df['data_timestamp'].dt.day,
-                       hour=df['data_timestamp'].dt.hour,
-                       minute=df['data_timestamp'].dt.minute,
-                       # second=df['data_timestamp'].dt.second,
-                       eta_hour=df['eta'].dt.hour,
-                       eta_minute=df['eta'].dt.minute,
-                       # eta_second=df['eta'].dt.second,
-                       is_scheduled=(df['rmk_en'] ==
-                                     'Scheduled Bus').astype(int),
-                       is_weekend=(
-                           df['data_timestamp'].dt.weekday >= 5).astype(int),
-                       tta=(df['eta'] - df['data_timestamp']
-                            ).dt.total_seconds(),
-                       accuracy='') \
-            .drop(columns=['co', 'eta_seq', 'dest_tc', 'dest_sc', 'dest_en', 'weather',
-                           'service_type', 'route', 'rmk_tc', 'rmk_sc', 'rmk_en',],
-                  errors='ignore')
-
-        self._generate_ml_dataset(
-            df[df['dir'] == 'O'], self.root_dir.joinpath(f'{route}_outbound.csv'))
-        self._generate_ml_dataset(
-            df[df['dir'] == 'I'], self.root_dir.joinpath(f'{route}_inbound.csv'))
-
-    def _generate_ml_dataset(self, df: pd.DataFrame, filename: os.PathLike) -> None:
-        self._calculate_etas_error(df) \
-            .drop(columns=['dir', 'eta', 'data_timestamp'], errors='ignore') \
-            .drop(df[df['accuracy'] == ''].index, errors='ignore') \
-            .to_csv(filename, mode='a', index=False)
+        for path in raw_paths:
+            os.remove(self.raws_dir.joinpath(path))
 
 
 class MtrBusPredictor(Predictor):
+
+    __path_prefix__ = 'mtr_bus'
     _HEADS = ['route', 'dir', 'eta_seq', 'stop', 'eta', 'data_timestamp']
 
     async def fetch_dataset(self) -> None:
-        def entry_cleaning(eta: dict) -> dict:
-            try:
-                # malformed data_timestamp is save to be replaced by the current time
-                # while eta not, which will be ignore later at `process_raw_dataset`
-                datetime.fromisoformat(eta['data_timestamp'])
-            except (ValueError, TypeError):
-                eta['data_timestamp'] = datetime.now(
-                    pytz.timezone('Asia/Hong_kong')).isoformat(timespec='seconds')
-            return eta
-
         filename = self.raws_dir.joinpath('raws.csv')
         if not os.path.exists(filename):
             old_df = pd.DataFrame(columns=self._HEADS)
         else:
-            old_df = pd.read_csv(filename, index_col=0)
+            old_df = pd.read_csv(filename, index_col=0, low_memory=True)
 
         async with aiohttp.ClientSession() as e:
             all_eta = await asyncio.gather(
@@ -227,14 +236,14 @@ class MtrBusPredictor(Predictor):
                     eta_second = int(eta['departureTimeInSecond']) \
                         if any(s in stop['busStopId'] for s in ('U010', 'D010')) \
                         else int(eta['arrivalTimeInSecond'])
-                    dir = 'O' \
+                    dir_ = 'O' \
                         if stop['busStopId'].split('-')[1].startswith('U') \
                         else 'I'
 
                     etas.append({
                         'route': route['routeName'],
                         'stop': stop['busStopId'],
-                        'dir': dir,
+                        'dir': dir_,
                         'eta_seq': idx + 1,
                         'data_timestamp': data_timestamp.isoformat(timespec='seconds'),
                         'eta': (data_timestamp + timedelta(seconds=eta_second)).isoformat(timespec='seconds')
@@ -251,7 +260,10 @@ class MtrBusPredictor(Predictor):
         if type_ != 'day':
             raise ValueError(f'Incorrect type: {type_}.')
 
-        df = pd.read_csv(Path(__file__).parent.joinpath('raws.csv'),
+        os.replace(self.raws_dir.joinpath('raws.csv'),
+                   self.raws_dir.joinpath('raws_copy.csv'))
+
+        df = pd.read_csv(Path(__file__).parent.joinpath('raws_copy.csv'),
                          on_bad_lines='warn',
                          low_memory=False,
                          index_col=[0])
@@ -277,13 +289,7 @@ class MtrBusPredictor(Predictor):
                  ).dt.total_seconds(),
             accuracy='')
 
-        self._generate_ml_dataset(
+        _ml_dataset_clean_n_join(
             df[df['dir'] == 'O'], Path(__file__).parent.joinpath('mtr_bus', f'{route}_outbound.csv'))
-        self._generate_ml_dataset(
+        _ml_dataset_clean_n_join(
             df[df['dir'] == 'I'], Path(__file__).parent.joinpath('mtr_bus', f'{route}_inbound.csv'))
-
-    def _generate_ml_dataset(self, df: pd.DataFrame, filename: Path) -> None:
-        self._calculate_etas_error(df) \
-            .drop(columns=['dir', 'eta', 'data_timestamp'], errors='ignore') \
-            .drop(df[df['accuracy'] == ''].index, errors='ignore') \
-            .to_csv(filename, mode='a', index=False, header=not filename.exists())
