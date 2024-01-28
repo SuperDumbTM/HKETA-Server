@@ -46,11 +46,11 @@ async def init_scheduler():
     )
     scheduler.start()
 
-    def fetch_raw_dataset_job(type_: Literal['day', 'night']):
-        hketa.predictor.KmbPredictor(definition.DATASET_PATH,
-                                     definition.ETA_FACTORY.create_transport(hketa.enums.Company.KMB)).raws_to_ml_dataset(type_)
-        hketa.predictor.MtrBusPredictor(definition.DATASET_PATH,
-                                        definition.ETA_FACTORY.create_transport(hketa.enums.Company.MTRBUS)).raws_to_ml_dataset(type_)
+    def fetch_raw_dataset_job():
+        asyncio.run(hketa.predictor.MtrBusPredictor(definition.DATASET_PATH,
+                                                    definition.ETA_FACTORY.create_transport(hketa.enums.Company.MTRBUS)).fetch_dataset())
+        asyncio.run(hketa.predictor.KmbPredictor(definition.DATASET_PATH,
+                                                 definition.ETA_FACTORY.create_transport(hketa.enums.Company.KMB)).fetch_dataset())
 
     def perpare_ml_dataset(type_: Literal['day', 'night']):
         hketa.predictor.KmbPredictor(

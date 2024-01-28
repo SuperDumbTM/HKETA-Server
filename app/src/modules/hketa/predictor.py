@@ -101,6 +101,34 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
         df[df['dir'] == 'I'], out_dir.joinpath(f'{route}_inbound.csv'))
 
 
+def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
+    df = pd.read_csv(raw_path,
+                     on_bad_lines='warn',
+                     low_memory=False,
+                     index_col=[0])
+
+    df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
+        .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
+
+    df = df.assign(year=df['data_timestamp'].dt.year,
+                   month=df['data_timestamp'].dt.month,
+                   day=df['data_timestamp'].dt.day,
+                   hour=df['data_timestamp'].dt.hour,
+                   minute=df['data_timestamp'].dt.minute,
+                   eta_hour=df['eta'].dt.hour,
+                   eta_minute=df['eta'].dt.minute,
+                   is_weekend=(
+        df['data_timestamp'].dt.weekday >= 5).astype(int),
+        tta=(df['eta'] - df['data_timestamp']
+             ).dt.total_seconds(),
+        accuracy='')
+
+    _ml_dataset_clean_n_join(
+        df[df['dir'] == 'O'], out_dir.joinpath(f'{route}_outbound.csv'))
+    _ml_dataset_clean_n_join(
+        df[df['dir'] == 'I'], out_dir.joinpath(f'{route}_inbound.csv'))
+
+
 class Predictor(ABC):
 
     __path_prefix__: str
@@ -175,20 +203,19 @@ class KmbPredictor(Predictor):
 
     async def fetch_dataset(self) -> None:
         async def eta_with_route(r: str, s: aiohttp.ClientSession):
-            return r, (await api_async.kmb_eta(r, 1, s))['data']
+            try:
+                return r, (await api_async.kmb_eta(r, 1, s))['data']
+            except aiohttp.ClientError:
+                return r, []
 
         async with aiohttp.ClientSession() as s:
-            results = await asyncio.gather(*[
-                eta_with_route(r, s) for r in self.transport_.routes.keys()
-            ])
+            responses = await asyncio.gather(
+                *[eta_with_route(r, s) for r in self.transport_.routes.keys()])
 
-        import time
         with Pool(os.cpu_count() or 4, maxtasksperchild=50) as pool:
-            for i in range(1080):
-                start = time.time()
-                pool.starmap(_write_raw_csv_worker,
-                             ((self.raws_dir.joinpath(f'{r}.csv'), self._HEADS, data) for r, data in results))
-                print(f'@{i}:\t{time.time() - start}')
+            pool.starmap(_write_raw_csv_worker,
+                         ((self.raws_dir.joinpath(f'{r}.csv'), self._HEADS, etas)
+                          for r, etas in responses))
 
     def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
         if type_ != 'day' and type_ != 'night':
@@ -218,19 +245,17 @@ class MtrBusPredictor(Predictor):
     _HEADS = ['route', 'dir', 'eta_seq', 'stop', 'eta', 'data_timestamp']
 
     async def fetch_dataset(self) -> None:
-        filename = self.raws_dir.joinpath('raws.csv')
-        if not os.path.exists(filename):
-            old_df = pd.DataFrame(columns=self._HEADS)
-        else:
-            old_df = pd.read_csv(filename, index_col=0, low_memory=True)
+        processed_etas = {}
+        data_timestamp = datetime.now()  # timestamp from the API is not accurate enough
+        async with aiohttp.ClientSession() as s:
+            responses = await asyncio.gather(*[api_async.mtr_bus_eta(r, 'en', s)
+                                             for r in self.transport_.route_list().keys()],
+                                             return_exceptions=True)
 
-        async with aiohttp.ClientSession() as e:
-            all_eta = await asyncio.gather(
-                *[api_async.mtr_bus_eta(r, 'en', e) for r in self.transport_.route_list().keys()])
-
-        etas = []
-        data_timestamp = datetime.now()
-        for route in all_eta:
+        for route in responses:
+            if isinstance(route, aiohttp.ClientError):
+                continue
+            processed_etas.setdefault(route['routeName'], [])
             for stop in route['busStop']:
                 for idx, eta in enumerate(stop['bus']):
                     eta_second = int(eta['departureTimeInSecond']) \
@@ -240,7 +265,7 @@ class MtrBusPredictor(Predictor):
                         if stop['busStopId'].split('-')[1].startswith('U') \
                         else 'I'
 
-                    etas.append({
+                    processed_etas[route['routeName']].append({
                         'route': route['routeName'],
                         'stop': stop['busStopId'],
                         'dir': dir_,
@@ -249,10 +274,10 @@ class MtrBusPredictor(Predictor):
                         'eta': (data_timestamp + timedelta(seconds=eta_second)).isoformat(timespec='seconds')
                     })
 
-        df = pd.DataFrame(etas, columns=self._HEADS)
-        pd.concat([old_df, df[df['eta_seq'] == 1]]) \
-            .reset_index(drop=True) \
-            .to_csv(filename, mode='w', index=True)
+        for route_no, etas in processed_etas.items():
+            _write_raw_csv_worker(self.raws_dir.joinpath(f'{route_no}.csv'),
+                                  self._HEADS,
+                                  etas)
 
     def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
         if type_ == 'night':
@@ -269,8 +294,8 @@ class MtrBusPredictor(Predictor):
                          index_col=[0])
 
         with Pool(os.cpu_count() or 4) as pool:
-            pool.starmap(self._process_raw_dataset,
-                         [g for g in df.groupby('route')])
+            pool.starmap(_mtr_raw_2_dataset_worker,
+                         [(r, ) for r, g in df.groupby('route')])
 
     def _process_raw_dataset(self, route: str, df: pd.DataFrame) -> None:
         df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
