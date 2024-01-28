@@ -69,7 +69,7 @@ def get_stop_list(company: hketa.enums.Company,
     return std_response.StdResponse.success_(
         data={
             'company': company,
-            'route_name': route_no,
+            'route_no': route_no,
             'direction': direction,
             'service_type': service_type,
             'stops': transport_.stop_list(route_no, direction, service_type)
@@ -77,7 +77,7 @@ def get_stop_list(company: hketa.enums.Company,
     )
 
 
-@router.get("/stop/{company}/{route_name}")
+@router.get("/stop/{company}/{route_no}")
 def get_stop(company: hketa.enums.Company,
              route_no: str,
              direction: hketa.enums.Direction,
@@ -92,7 +92,7 @@ def get_stop(company: hketa.enums.Company,
             return std_response.StdResponse.success_(
                 data={
                     'company': company,
-                    'route_name': route_no,
+                    'route_no': route_no,
                     'direction': direction,
                     'service_type': service_type,
                     'stop': asdict(stop, dict_factory=utils.custom_asdict_factory)
