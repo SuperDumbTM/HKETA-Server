@@ -1,4 +1,4 @@
-FROM python:3.11.5-alpine3.18
+FROM python:3.11.7-slim-bookworm
 
 ARG S6_OVERLAY_VERSION="3.1.5.0"
 ARG S6_OVERLAY_ARCH="x86_64"
@@ -9,26 +9,27 @@ ENV PS1="$(whoami)@$(hostname):$(pwd)\\$ " \
   HOME="/root" \
   TERM="xterm" \
   S6_VERBOSITY=1
+  
+RUN echo "**** install apt-utils and locales ****" && \
+  apt-get update && \
+  apt-get install -y \
+    apt-utils \
+    locales && \
+  echo "**** Installing runtime packages ****" && \
+  apt-get install -y \
+    xz-utils \
+    cron \
+    curl \
+    gnupg \
+    jq \
+    netcat-traditional \
+    tzdata
 
 # add s6 overlay
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
 RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}.tar.xz /tmp
 RUN tar -C / -Jxpf /tmp/s6-overlay-${S6_OVERLAY_ARCH}.tar.xz
-
-RUN \
-  echo "**** Installing runtime packages ****" && \
-  apk add --no-cache \
-    bash \
-    xz \
-    bash \
-    ca-certificates \
-    coreutils \
-    curl \
-    jq \
-    procps-ng \
-    shadow \
-    tzdata
 
 # add local files
 COPY /app /defaults/app
