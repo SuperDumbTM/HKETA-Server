@@ -3,8 +3,10 @@ FROM python:3.11.7-slim-bookworm
 ARG S6_OVERLAY_VERSION="3.1.5.0"
 ARG S6_OVERLAY_ARCH="x86_64"
 
-ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
+ENV APP_PORT=8000
+ENV APP_HOST="0.0.0.0"
+ENV APP_CACHE_PATH="/caches"
 ENV PS1="$(whoami)@$(hostname):$(pwd)\\$ " \
   HOME="/root" \
   TERM="xterm" \
@@ -52,6 +54,7 @@ RUN echo "**** Fixing permission for s6 and service files ****" && \
 RUN echo "**** cleanup ****" && \
     rm -rfv /tmp/*
 
-EXPOSE ${PORT}
+VOLUME [${APP_CACHE_PATH}]
+EXPOSE ${APP_PORT}
 
 ENTRYPOINT [ "/init" ]
