@@ -55,7 +55,7 @@ RUN echo "**** Fixing permission for s6 and service files ****" && \
 RUN echo "**** cleanup ****" && \
     rm -rfv /tmp/*
 
-VOLUME ["$(APP_CACHE_PATH)"]
+VOLUME ${APP_CACHE_PATH}
 EXPOSE ${APP_PORT}
 
 ENTRYPOINT [ "/init" ]
