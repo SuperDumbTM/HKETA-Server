@@ -43,7 +43,7 @@ async def init_scheduler():
         timezone=pytz.timezone('Asia/Hong_kong'),
     )
 
-    @scheduler.scheduled_job(trigger='cron', minute='*/1')
+    @scheduler.scheduled_job(trigger='cron', minute='*/1', max_instances=1)
     def fetch_raw_dataset_job():
         asyncio.run(hketa.predictor.MtrBusPredictor(definition.DATASET_PATH,
                                                     definition.ETA_FACTORY.create_transport(hketa.enums.Company.MTRBUS)).fetch_dataset())
