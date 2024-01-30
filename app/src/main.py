@@ -16,7 +16,7 @@ from app.src.modules import hketa
 from app.src.routers import eta, icon, route
 
 
-app = FastAPI(title="HKETA-API-Server", debug=True)
+app = FastAPI(title="HKETA-API-Server")
 
 app.mount("/static", StaticFiles(directory=os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "static")), name="static")
@@ -29,29 +29,28 @@ scheduler = None
 @app.on_event("startup")
 async def init_scheduler():
     global scheduler
-    jobstores = {
-        "default": MemoryJobStore(),
-    }
-    executors = {
-        "default": ThreadPoolExecutor(15),
-        "processpool": ProcessPoolExecutor(5),
-    }
-    job_defaults = {"coalesce": False, "max_instances": 3}
 
     scheduler = BackgroundScheduler(
-        jobstores=jobstores,
-        executors=executors,
-        job_defaults=job_defaults,
+        jobstores={
+            'default': MemoryJobStore(),
+        },
+        executors={
+            "default": ThreadPoolExecutor(15),
+            "processpool": ProcessPoolExecutor(5),
+        },
+        job_defaults={"coalesce": False, "max_instances": 3},
         timezone=UTC,
     )
-    scheduler.start()
 
+    @scheduler.scheduled_job(trigger='cron', minute='*/1')
     def fetch_raw_dataset_job():
         asyncio.run(hketa.predictor.MtrBusPredictor(definition.DATASET_PATH,
                                                     definition.ETA_FACTORY.create_transport(hketa.enums.Company.MTRBUS)).fetch_dataset())
         asyncio.run(hketa.predictor.KmbPredictor(definition.DATASET_PATH,
                                                  definition.ETA_FACTORY.create_transport(hketa.enums.Company.KMB)).fetch_dataset())
 
+    @scheduler.scheduled_job(trigger='cron', args=['day'], hour='3', minute='0',)
+    @scheduler.scheduled_job(trigger='cron', args=['night'], hour='15', minute='0',)
     def perpare_ml_dataset(type_: Literal['day', 'night']):
         hketa.predictor.KmbPredictor(
             definition.DATASET_PATH, definition.ETA_FACTORY.create_transport(hketa.enums.Company.KMB)) \
@@ -59,24 +58,8 @@ async def init_scheduler():
         hketa.predictor.MtrBusPredictor(
             definition.DATASET_PATH, definition.ETA_FACTORY.create_transport(hketa.enums.Company.MTRBUS)) \
             .raws_to_ml_dataset(type_)
-
-    # ---------- init tasks ----------
-    scheduler.add_job(fetch_raw_dataset_job,
-                      trigger='cron',
-                      minute='*/1',
-                      id='fetch_raw')
-    scheduler.add_job(perpare_ml_dataset,
-                      args=['day'],
-                      trigger='cron',
-                      hour='3',
-                      minute='0',
-                      id='ml_raw2dataset_dat')
-    scheduler.add_job(perpare_ml_dataset,
-                      args=['night'],
-                      trigger='cron',
-                      hour='15',
-                      minute='0',
-                      id='ml_raw2dataset_night')
+    
+    scheduler.start()
 
 
 @app.on_event("shutdown")
