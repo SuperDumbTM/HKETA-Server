@@ -7,6 +7,7 @@ from typing import Literal
 from apscheduler.executors.pool import ProcessPoolExecutor, ThreadPoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 import pytz
@@ -30,7 +31,7 @@ scheduler = None
 async def init_scheduler():
     global scheduler
 
-    scheduler = BackgroundScheduler(
+    scheduler = AsyncIOScheduler(
         jobstores={
             'default': MemoryJobStore(),
         },
