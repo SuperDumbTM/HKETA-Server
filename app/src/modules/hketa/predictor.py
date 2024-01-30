@@ -24,7 +24,7 @@ def _write_raw_csv_worker(path: Path, headers: list[str], etas: list) -> None:
     if not os.path.exists(path):
         old_df = pd.DataFrame(columns=headers)
     else:
-        old_df = pd.read_csv(path, index_col=0, low_memory=True)
+        old_df = pd.read_csv(path, index_col=0, low_memory=False)
 
     df = pd.DataFrame([eta for eta in etas if eta['eta'] is not None],
                       columns=headers,)
@@ -190,7 +190,7 @@ class KmbPredictor(Predictor):
         if not path.exists():
             return None
 
-        df = pd.read_csv(path, low_memory=True)
+        df = pd.read_csv(path, low_memory=False)
         values = [{
             'seq': seq,
             'year': data_timestamp.year,
