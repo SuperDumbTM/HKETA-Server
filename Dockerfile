@@ -25,6 +25,7 @@ RUN echo "**** install apt-utils and locales ****" && \
     gnupg \
     jq \
     netcat-traditional \
+    procps \
     tzdata
 
 # add s6 overlay
