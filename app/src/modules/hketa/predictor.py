@@ -1,10 +1,11 @@
-from abc import ABC, abstractmethod
 import asyncio
 import glob
 import math
 import os
-from datetime import datetime, timedelta
+from abc import ABC, abstractmethod
 from multiprocessing.pool import Pool
+from multiprocessing.context import SpawnContext
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -13,7 +14,7 @@ import pandas as pd
 import sklearn.tree
 
 try:
-    from app.src.modules.hketa import api_async, transport
+    from . import api_async, transport
 except (ImportError, ModuleNotFoundError):
     import api_async
     import transport
@@ -71,9 +72,12 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                      low_memory=False,
                      index_col=[0])
 
+    if len(df) == 0:
+        # also aviod error: "Can only use .dt accessor with datetimelike values"
+        return
+
     df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
         .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
-
     df = df.assign(year=df['data_timestamp'].dt.year,
                    month=df['data_timestamp'].dt.month,
                    day=df['data_timestamp'].dt.day,
@@ -95,10 +99,10 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
               errors='ignore') \
         .rename({'seq': 'stop'}, axis=1)
 
-    _ml_dataset_clean_n_join(
-        df[df['dir'] == 'O'], out_dir.joinpath(f'{route}_outbound.csv'))
-    _ml_dataset_clean_n_join(
-        df[df['dir'] == 'I'], out_dir.joinpath(f'{route}_inbound.csv'))
+    # _ml_dataset_clean_n_join(
+    #     df[df['dir'] == 'O'], out_dir.joinpath(f'{route}_outbound.csv'))
+    # _ml_dataset_clean_n_join(
+    #     df[df['dir'] == 'I'], out_dir.joinpath(f'{route}_inbound.csv'))
 
 
 def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
@@ -107,9 +111,12 @@ def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                      low_memory=False,
                      index_col=[0])
 
+    if len(df) == 0:
+        # also aviod error: "Can only use .dt accessor with datetimelike values"
+        return
+
     df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
         .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
-
     df = df.assign(year=df['data_timestamp'].dt.year,
                    month=df['data_timestamp'].dt.month,
                    day=df['data_timestamp'].dt.day,
@@ -211,14 +218,12 @@ class KmbPredictor(Predictor):
         async with aiohttp.ClientSession() as s:
             responses = await asyncio.gather(
                 *[eta_with_route(r, s) for r in self.transport_.routes.keys()])
-        
-        # NOTE: using context manager with process pool and uvicorn will cause uvicorn to restart
-        pool = Pool(os.cpu_count() or 4, maxtasksperchild=30)
-        pool.starmap(_write_raw_csv_worker,
-                        ((self.raws_dir.joinpath(f'{r}.csv'), self._HEADS, etas)
-                        for r, etas in responses))
-        pool.close()
-        pool.join()
+
+        # NOTE: using context manager with multiprocessing.Pool and uvicorn will cause uvicorn to restart
+        with Pool(maxtasksperchild=20, context=SpawnContext()) as pool:
+            pool.starmap(_write_raw_csv_worker,
+                         ((self.raws_dir.joinpath(f'{route_no}.csv'), self._HEADS, etas)
+                             for route_no, etas in responses))
 
     def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
         if type_ != 'day' and type_ != 'night':
@@ -234,16 +239,16 @@ class KmbPredictor(Predictor):
 
         raw_paths = glob.glob('*_copy.csv', root_dir=self.raws_dir)
 
-        # NOTE: using context manager with process pool and uvicorn will cause uvicorn to restart
-        pool = Pool(os.cpu_count() or 4, maxtasksperchild=30)
-        pool.starmap(_kmb_raw_2_dataset_worker,
-                        [(Path(fn.replace('_copy', '')).stem, self.raws_dir.joinpath(fn), self.root_dir)
-                        for fn in raw_paths])
-        pool.close()
-        pool.join()
+        # NOTE: using context manager with multiprocessing.Pool and uvicorn will cause uvicorn to restart
+        with Pool(maxtasksperchild=20, context=SpawnContext()) as pool:
+            pool.starmap(_kmb_raw_2_dataset_worker,
+                         ((Path(filepath.replace('_copy', '')).stem,
+                           self.raws_dir.joinpath(filepath),
+                           self.root_dir)
+                          for filepath in raw_paths))
 
-        for path in raw_paths:
-            os.remove(self.raws_dir.joinpath(path))
+        # for path in raw_paths:
+        #     os.remove(self.raws_dir.joinpath(path))
 
 
 class MtrBusPredictor(Predictor):
@@ -281,6 +286,7 @@ class MtrBusPredictor(Predictor):
                         'eta': (data_timestamp + timedelta(seconds=eta_second)).isoformat(timespec='seconds')
                     })
 
+        # relativly fast processing time, no need for multiprocessing
         for route_no, etas in processed_etas.items():
             _write_raw_csv_worker(self.raws_dir.joinpath(f'{route_no}.csv'),
                                   self._HEADS,
@@ -292,20 +298,22 @@ class MtrBusPredictor(Predictor):
         if type_ != 'day':
             raise ValueError(f'Incorrect type: {type_}.')
 
-        os.replace(self.raws_dir.joinpath('raws.csv'),
-                   self.raws_dir.joinpath('raws_copy.csv'))
+        for fname in glob.glob('*.csv', root_dir=self.raws_dir):
+            os.replace(self.raws_dir.joinpath(fname),
+                       self.raws_dir.joinpath(f'{fname.removesuffix(".csv")}_copy.csv'))
 
-        df = pd.read_csv(Path(__file__).parent.joinpath('raws_copy.csv'),
-                         on_bad_lines='warn',
-                         low_memory=False,
-                         index_col=[0])
-        
-        # NOTE: using context manager with process pool and uvicorn will cause uvicorn to restart
-        pool = Pool(os.cpu_count() or 4, maxtasksperchild=5)
-        pool.starmap(_mtr_raw_2_dataset_worker,
-                        [(r, ) for r, g in df.groupby('route')])
-        pool.close()
-        pool.join()
+        raw_paths = glob.glob('*_copy.csv', root_dir=self.raws_dir)
+
+        # NOTE: using context manager with multiprocessing.Pool and uvicorn will cause uvicorn to restart
+        with Pool(maxtasksperchild=20, context=SpawnContext()) as pool:
+            pool.starmap(_mtr_raw_2_dataset_worker,
+                         ((Path(filepath.replace('_copy', '')).stem,
+                           self.raws_dir.joinpath(filepath),
+                           self.root_dir)
+                          for filepath in raw_paths))
+
+        # for path in raw_paths:
+        #     os.remove(self.raws_dir.joinpath(path))
 
     def _process_raw_dataset(self, route: str, df: pd.DataFrame) -> None:
         df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
