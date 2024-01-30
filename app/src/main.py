@@ -9,7 +9,7 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
-from pytz import UTC
+import pytz
 from app.src import definition
 
 from app.src.modules import hketa
@@ -35,11 +35,11 @@ async def init_scheduler():
             'default': MemoryJobStore(),
         },
         executors={
-            "default": ThreadPoolExecutor(15),
-            "processpool": ProcessPoolExecutor(5),
+            "default": ThreadPoolExecutor(12),
+            "processpool": ProcessPoolExecutor(4),
         },
         job_defaults={"coalesce": False, "max_instances": 3},
-        timezone=UTC,
+        timezone=pytz.timezone('Asia/Hong_kong'),
     )
 
     @scheduler.scheduled_job(trigger='cron', minute='*/1')
@@ -58,7 +58,7 @@ async def init_scheduler():
         hketa.predictor.MtrBusPredictor(
             definition.DATASET_PATH, definition.ETA_FACTORY.create_transport(hketa.enums.Company.MTRBUS)) \
             .raws_to_ml_dataset(type_)
-    
+
     scheduler.start()
 
 

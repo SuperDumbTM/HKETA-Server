@@ -211,11 +211,14 @@ class KmbPredictor(Predictor):
         async with aiohttp.ClientSession() as s:
             responses = await asyncio.gather(
                 *[eta_with_route(r, s) for r in self.transport_.routes.keys()])
-
-        with Pool(os.cpu_count() or 4, maxtasksperchild=50) as pool:
-            pool.starmap(_write_raw_csv_worker,
-                         ((self.raws_dir.joinpath(f'{r}.csv'), self._HEADS, etas)
-                          for r, etas in responses))
+        
+        # NOTE: using context manager with process pool and uvicorn will cause uvicorn to restart
+        pool = Pool(os.cpu_count() or 4, maxtasksperchild=30)
+        pool.starmap(_write_raw_csv_worker,
+                        ((self.raws_dir.joinpath(f'{r}.csv'), self._HEADS, etas)
+                        for r, etas in responses))
+        pool.close()
+        pool.join()
 
     def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
         if type_ != 'day' and type_ != 'night':
@@ -230,10 +233,14 @@ class KmbPredictor(Predictor):
                        self.raws_dir.joinpath(f'{fname.removesuffix(".csv")}_copy.csv'))
 
         raw_paths = glob.glob('*_copy.csv', root_dir=self.raws_dir)
-        with Pool(os.cpu_count() or 4) as pool:
-            pool.starmap(_kmb_raw_2_dataset_worker,
-                         [(Path(fn.replace('_copy', '')).stem, self.raws_dir.joinpath(fn), self.root_dir)
-                          for fn in raw_paths])
+
+        # NOTE: using context manager with process pool and uvicorn will cause uvicorn to restart
+        pool = Pool(os.cpu_count() or 4, maxtasksperchild=30)
+        pool.starmap(_kmb_raw_2_dataset_worker,
+                        [(Path(fn.replace('_copy', '')).stem, self.raws_dir.joinpath(fn), self.root_dir)
+                        for fn in raw_paths])
+        pool.close()
+        pool.join()
 
         for path in raw_paths:
             os.remove(self.raws_dir.joinpath(path))
@@ -292,10 +299,13 @@ class MtrBusPredictor(Predictor):
                          on_bad_lines='warn',
                          low_memory=False,
                          index_col=[0])
-
-        with Pool(os.cpu_count() or 4) as pool:
-            pool.starmap(_mtr_raw_2_dataset_worker,
-                         [(r, ) for r, g in df.groupby('route')])
+        
+        # NOTE: using context manager with process pool and uvicorn will cause uvicorn to restart
+        pool = Pool(os.cpu_count() or 4, maxtasksperchild=5)
+        pool.starmap(_mtr_raw_2_dataset_worker,
+                        [(r, ) for r, g in df.groupby('route')])
+        pool.close()
+        pool.join()
 
     def _process_raw_dataset(self, route: str, df: pd.DataFrame) -> None:
         df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
