@@ -99,10 +99,10 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
               errors='ignore') \
         .rename({'seq': 'stop'}, axis=1)
 
-    # _ml_dataset_clean_n_join(
-    #     df[df['dir'] == 'O'], out_dir.joinpath(f'{route}_outbound.csv'))
-    # _ml_dataset_clean_n_join(
-    #     df[df['dir'] == 'I'], out_dir.joinpath(f'{route}_inbound.csv'))
+    _ml_dataset_clean_n_join(
+        df[df['dir'] == 'O'], out_dir.joinpath(f'{route}_outbound.csv'))
+    _ml_dataset_clean_n_join(
+        df[df['dir'] == 'I'], out_dir.joinpath(f'{route}_inbound.csv'))
 
 
 def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
@@ -247,8 +247,8 @@ class KmbPredictor(Predictor):
                            self.root_dir)
                           for filepath in raw_paths))
 
-        # for path in raw_paths:
-        #     os.remove(self.raws_dir.joinpath(path))
+        for path in raw_paths:
+            os.remove(self.raws_dir.joinpath(path))
 
 
 class MtrBusPredictor(Predictor):
