@@ -21,16 +21,16 @@ except (ImportError, ModuleNotFoundError):
 
 
 def _write_raw_csv_worker(path: Path, headers: list[str], etas: list) -> None:
-    if not os.path.exists(path):
-        old_df = pd.DataFrame(columns=headers)
-    else:
-        old_df = pd.read_csv(path, index_col=0, low_memory=False)
-
     df = pd.DataFrame([eta for eta in etas if eta['eta'] is not None],
                       columns=headers,)
 
     if len(df) == 0:
         return
+    if not os.path.exists(path):
+        old_df = pd.DataFrame(columns=headers)
+    else:
+        old_df = pd.read_csv(path, index_col=0, low_memory=False)
+
     pd.concat([old_df, df[df['eta_seq'] == 1]]) \
         .reset_index(drop=True) \
         .to_csv(path, mode='w', index=True)
