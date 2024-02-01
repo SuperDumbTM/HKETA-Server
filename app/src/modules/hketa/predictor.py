@@ -29,7 +29,10 @@ def _write_raw_csv_worker(path: Path, headers: list[str], etas: list) -> None:
     if not os.path.exists(path):
         old_df = pd.DataFrame(columns=headers)
     else:
-        old_df = pd.read_csv(path, index_col=0, low_memory=False)
+        try:
+            old_df = pd.read_csv(path, index_col=0, low_memory=False)
+        except pd.errors.ParserError:
+            old_df = pd.DataFrame(columns=headers)
 
     pd.concat([old_df, df[df['eta_seq'] == 1]]) \
         .reset_index(drop=True) \
