@@ -3,9 +3,9 @@ import glob
 import math
 import os
 from abc import ABC, abstractmethod
-from multiprocessing.pool import Pool
-from multiprocessing.context import SpawnContext
 from datetime import datetime, timedelta
+from multiprocessing.context import SpawnContext
+from multiprocessing.pool import Pool
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -14,9 +14,10 @@ import pandas as pd
 import sklearn.tree
 
 try:
-    from . import api_async, transport
+    from . import api_async, enums, transport
 except (ImportError, ModuleNotFoundError):
     import api_async
+    import enums
     import transport
 
 
@@ -184,16 +185,20 @@ class KmbPredictor(Predictor):
               'dest_en', 'eta_seq', 'eta', 'rmk_tc', 'rmk_sc', 'rmk_en', 'data_timestamp']
 
     def predict(self,
-                route: str,
+                route_no: str,
+                direction: enums.Direction,
                 seq: int,
                 data_timestamp: datetime,
                 eta: datetime,
                 rmk_en: str) -> Optional[int]:
-        path = self.root_dir.joinpath(f'{route}.csv')
-        if not path.exists():
+        try:
+            df = pd.read_csv(self.root_dir.joinpath(f'{route_no}_{direction.value}.csv'),
+                             low_memory=False)
+            if len(df) == 0:
+                return None
+        except FileNotFoundError:
             return None
 
-        df = pd.read_csv(path, low_memory=False)
         values = [{
             'seq': seq,
             'year': data_timestamp.year,
