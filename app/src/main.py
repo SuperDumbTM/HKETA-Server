@@ -53,15 +53,15 @@ async def init_scheduler():
         asyncio.run(hketa.predictor.KmbPredictor(definition.DATASET_PATH,
                                                  definition.ETA_FACTORY.create_transport(hketa.enums.Company.KMB)).fetch_dataset())
 
-    @scheduler.scheduled_job(trigger='cron', args=['day'], hour='3', minute='0',)
-    @scheduler.scheduled_job(trigger='cron', args=['night'], hour='15', minute='0',)
+    @scheduler.scheduled_job(trigger='cron', args=['day'], hour='3', minute='0', max_instances=1)
+    @scheduler.scheduled_job(trigger='cron', args=['night'], hour='15', minute='0', max_instances=1)
     def perpare_ml_dataset_mtrb(type_: Literal['day', 'night']):
         hketa.predictor.MtrBusPredictor(
             definition.DATASET_PATH, definition.ETA_FACTORY.create_transport(hketa.enums.Company.MTRBUS)) \
             .raws_to_ml_dataset(type_)
 
-    @scheduler.scheduled_job(trigger='cron', args=['day'], hour='3', minute='5',)
-    @scheduler.scheduled_job(trigger='cron', args=['night'], hour='15', minute='5',)
+    @scheduler.scheduled_job(trigger='cron', args=['day'], hour='3', minute='5', max_instances=1)
+    @scheduler.scheduled_job(trigger='cron', args=['night'], hour='15', minute='5', max_instances=1)
     def perpare_ml_dataset_kmb(type_: Literal['day', 'night']):
         hketa.predictor.KmbPredictor(
             definition.DATASET_PATH, definition.ETA_FACTORY.create_transport(hketa.enums.Company.KMB)) \
