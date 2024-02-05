@@ -46,6 +46,16 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
         last_tta, last_timestamp = float('inf'), None
 
         for row in group.itertuples():
+            #   Example: 154, 106, 106, 63, 0, -44, 2, *-20, 87, 73, *-7, 88
+            #   Example: 112, 94, -7, -42, 0, *-74, 145, 86
+            #   Example: 155, 94, 88, 4, -34, 0, -60, *-18, 135, 83
+            #   Example: 202, 143, 83, *23, 186, 171, 143
+            #   Example: 244, 215, 214, 144, 80, *2, 132, 84
+            #   Example: 234, 220 , 126, 69, 4, *-65, 109
+            #               , 33, -46, 4, -60, -4, *-70, 245, 149, 149, 43, *-26, 137
+            #   Example: 166, 142, 109, -72, 390
+            #   Example: 303, 252, 201, 142, 141, 11, *-54, 180, 120, 36, 11, *11, 315
+
             if row.tta > last_tta:
                 for index, eta in schedules:
                     error = (eta - last_timestamp).total_seconds()
