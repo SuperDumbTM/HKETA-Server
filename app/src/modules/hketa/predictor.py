@@ -1,8 +1,8 @@
+from abc import ABC
 import asyncio
 import glob
 import math
 import os
-from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from multiprocessing.context import SpawnContext
 from multiprocessing.pool import Pool
@@ -44,30 +44,56 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
     for _, group in df.groupby('stop'):
         schedules = []
         last_tta, last_timestamp = float('inf'), None
+        etas = tuple(group.itertuples())
 
-        for row in group.itertuples():
-            # Normal
-            #   Example: 166, 142, 109, *-72, 390
-            # Close TTA between two consecutive schedule
-            #   Example: 234, 220, 126, 69, 4, *-65, 109 , 33, -46, 4, -60, -4, *-70, 245, 149, 149, 43, *-26, 137
-            #   Example: *-4, 99, 59, 28, *-11, 61, 10, 55, *7, 280
-            # Arrival at positive TTA
-            #   Example: 303, 252, 201, 142, 141, 11, *-54, 180, 120, 36, 11, *11, 315
-            #   Example: 244, 215, 214, 144, 80, *2, 132, 84
-            #   Example: 202, 143, 83, *23, 186, 171, 143
-            # [!] TTA jump up at the middle
-            #   Example: 520, 460, 400, 338, [279, 298,] 255, 202, 139, 64, 11, 6, -81, 634
-            # Extreme flucation
-            #   Example: 112, 94, -7, -42, 0, *-74, 145, 86
-            #   Example: 155, 94, 88, 4, -34, 0, -60, *-18, 135, 83
-            #   Example: 154, 106, 106, 63, 0, -44, 2, *-20, 87, 73, *-7, 88
-            #   Example: 28, *-11, 61, 10, 55, *7, 280
-            #   Example: 112, 31, 6, -47, 19, *-32, 181
-            #   Example: 204, 163, 109, 53, 25, -37, 23, 51, *21, 126
-            #   Example: 121, 44, 12, -26, *6, 322
-            #   Example: 220, 141, 73, 46, 24, -39, 10, *-17, 191
+        # Normal
+        #   Example: 166, 142, 109, *-72, 390
+        # Close TTA between two consecutive schedule
+        #   Example: 234, 220, 126, 69, 4, *-65, 109 , 33, -46, 4, -60, -4, *-70, 245, 149, 149, 43, *-26, 137
+        #   Example: *-4, 99, 59, 28, *-11, 61, 10, 55, *7, 280
+        # Arrival at positive TTA
+        #   Example: 303, 252, 201, 142, 141, 11, *-54, 180, 120, 36, 11, *11, 315
+        #   Example: 244, 215, 214, 144, 80, *2, 132, 84
+        #   Example: 202, 143, 83, *23, 186, 171, 143
+        # [!] TTA jump up at the middle
+        #   Example: 520, 460, 400, 338, [279, 298,] 255, 202, 139, 64, 11, 6, -81, 634
+        #   Example: 193, 135, 71, 67, 52, 41, 0, *-71, [75, 78, 78, 79, 51,] 9, *-36, 91, 61
+        # Extreme fluctuation
+        #   Example: 112, 94, -7, -42, 0, *-74, 145, 86
+        #   Example: 155, 94, 88, 4, -34, 0, -60, *-18, 135, 83
+        #   Example: 154, 106, 106, 63, 0, -44, 2, *-20, 87, 73, *-7, 88
+        #   Example: 28, *-11, 61, 10, 55, *7, 280
+        #   Example: 112, 31, 6, -47, 19, *-32, 181
+        #   Example: 204, 163, 109, 53, 25, -37, 23, 51, *21, 126
+        #   Example: 121, 44, 12, -26, *6, 322
+        #   Example: 220, 141, 73, 46, 24, -39, 10, *-17, 191
+        #   Example: 127, 58, 5, 2, *-79, 225, 224, 246, 232, 200
 
-            if row.tta > last_tta:
+        for idx, row in enumerate(etas):
+            is_arrived = False
+
+            if 90 > last_tta >= row.tta or 30 >= row.tta:
+                up = dn = 0
+                sub_last_tta = row.tta
+                for sub_row in etas[idx + 1:]:
+                    if sub_row.tta > 120:  # large gap between TTA, probably next schedule
+                        is_arrived = True
+                        break
+                    up += sub_row.tta >= sub_last_tta
+                    dn += sub_row.tta < sub_last_tta
+                    sub_last_tta = sub_row.tta
+                    # u u * // (u u d) (u u u) OR d * * // (d d d) (d d u) (d u d) (d u u)
+                    if dn == 0 and up > 1 or up == 0 and dn > 0:
+                        break
+                    if up + dn >= 3:
+                        is_arrived = (up == 1 and dn == 2)  # u d d // (u d u)
+                        break
+
+            schedules.append((row.Index, row.eta))
+            last_tta = row.tta
+            last_timestamp = row.data_timestamp
+
+            if is_arrived:
                 for index, eta in schedules:
                     error = (eta - last_timestamp).total_seconds()
                     if math.isnan(error) or abs(error) > 7200:
@@ -77,10 +103,6 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
                     df.loc[index, ['accuracy']] = round(error / 60)
                 schedules = []
                 last_tta, last_timestamp = float('inf'), None
-
-            schedules.append((row.Index, row.eta))
-            last_tta = row.tta
-            last_timestamp = row.data_timestamp
     return df
 
 
@@ -175,28 +197,6 @@ class Predictor(ABC):
             os.makedirs(self.root_dir)
         if not self.raws_dir.exists():
             os.makedirs(self.raws_dir)
-
-    def _calculate_etas_error(self, df: pd.DataFrame) -> pd.DataFrame:
-        for _, group in df.groupby('stop'):
-            schedules = []
-            last_tta, last_timestamp = float('inf'), None
-
-            for row in group.itertuples():
-                if row.tta > last_tta:
-                    for index, eta in schedules:
-                        error = (eta - last_timestamp).total_seconds()
-                        if math.isnan(error) or abs(error) > 7200:
-                            # 1. malformated timestamp will result int float('nan')
-                            # 2. ignore unusual TTA
-                            continue
-                        df.loc[index, ['accuracy']] = round(error / 60)
-                    schedules = []
-                    last_tta, last_timestamp = float('inf'), None
-
-                schedules.append((row.Index, row.eta))
-                last_tta = row.tta
-                last_timestamp = row.data_timestamp
-        return df
 
 
 class KmbPredictor(Predictor):
