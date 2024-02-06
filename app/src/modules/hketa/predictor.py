@@ -341,8 +341,8 @@ class MtrBusPredictor(Predictor):
                            self.root_dir)
                           for filepath in raw_paths))
 
-        # for path in raw_paths:
-        #     os.remove(self.raws_dir.joinpath(path))
+        for path in raw_paths:
+            os.remove(self.raws_dir.joinpath(path))
 
     def _process_raw_dataset(self, route: str, df: pd.DataFrame) -> None:
         df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
