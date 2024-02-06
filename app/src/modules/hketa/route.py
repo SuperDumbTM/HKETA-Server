@@ -62,7 +62,7 @@ class Route:
 
     def name(self) -> str:
         """Get the route name of the `entry`"""
-        if isinstance(self._provider, transport.MTRTrain):
+        if isinstance(self._provider, type(transport.MTRTrain)):
             return MTR_TRAIN_NAMES.get(self._entry.stop, self._entry.stop)
         return self._entry.no
 
