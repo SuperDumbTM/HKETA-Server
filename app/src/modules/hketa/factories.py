@@ -69,6 +69,6 @@ class EtaFactory:
             case enums.Company.CTB | enums.Company.NWFB:
                 return eta_processor.BravoBusEta(route.Route(entry, self.create_transport(entry.company)))
             case enums.Company.NLB:
-                return NotImplementedError
+                return eta_processor.NlbEta(route.Route(entry, self.create_transport(entry.company)))
             case _:
                 raise ValueError(f"Unrecognized company: {entry.company}")
