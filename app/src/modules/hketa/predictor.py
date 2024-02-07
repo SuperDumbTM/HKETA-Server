@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import aiohttp
+import numpy as np
 import pandas as pd
 import sklearn.tree
 
@@ -109,7 +110,7 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
 def _ml_dataset_clean_n_join(df: pd.DataFrame, filepath: Path) -> None:
     _calculate_etas_error(df) \
         .drop(columns=['dir', 'eta', 'data_timestamp'], errors='ignore') \
-        .drop(df[df['accuracy'] == ''].index, errors='ignore') \
+        .dropna(subset=['accuracy']) \
         .to_csv(filepath, mode='a', index=False, header=not filepath.exists())
 
 
@@ -130,10 +131,8 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                    day=df['data_timestamp'].dt.day,
                    hour=df['data_timestamp'].dt.hour,
                    minute=df['data_timestamp'].dt.minute,
-                   # second=raw['data_timestamp'].dt.second,
                    eta_hour=df['eta'].dt.hour,
                    eta_minute=df['eta'].dt.minute,
-                   # eta_second=raw['eta'].dt.second,
                    is_delayed=(df['rmk_en']
                                .str
                                .contains('Delayed journey', na=False)
@@ -142,7 +141,7 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                    is_weekend=((df['data_timestamp'].dt.weekday >= 5)
                                .astype(int)),
                    tta=(df['eta'] - df['data_timestamp']).dt.total_seconds(),
-                   accuracy='') \
+                   accuracy=np.nan) \
         .drop(columns=['co', 'eta_seq', 'dest_tc', 'dest_sc', 'dest_en', 'weather',
                        'service_type', 'route', 'rmk_tc', 'rmk_sc', 'rmk_en',],
               errors='ignore') \
