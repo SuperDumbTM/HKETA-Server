@@ -48,8 +48,8 @@ def get_eta(company: hketa.enums.Company,
 
     info = {
         'route': route_no,
-        'origin': provider.route.origin(),
-        'destination': provider.route.destination(),
+        'origin': provider.route.origin().name.get(lang),
+        'destination': provider.route.destination().name.get(lang),
         'stop_name': provider.route.stop_name(),
         'lang': lang.value,
         'logo_url': f'/{company.value}/bw_neg/icon',
@@ -63,6 +63,12 @@ def get_eta(company: hketa.enums.Company,
                 **info,
                 'etas': provider.etas(),
             }
+        )
+    except hketa.exceptions.EmptyDataError:
+        return std_response.StdResponse.fail(
+            message="No ETA available.",
+            code=status_code.StatusCode.ETA_EMPTY,
+            data=info
         )
     except hketa.exceptions.EndOfService:
         return std_response.StdResponse.fail(
