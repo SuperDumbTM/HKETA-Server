@@ -134,7 +134,9 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                    eta_hour=df['eta'].dt.hour,
                    eta_minute=df['eta'].dt.minute,
                    # eta_second=raw['eta'].dt.second,
-                   is_delayed=((df['rmk_en'].str.contains('Delayed journey'))
+                   is_delayed=(df['rmk_en']
+                               .str
+                               .contains('Delayed journey', na=False)
                                .astype(int)),
                    is_scheduled=(df['rmk_en'] == 'Scheduled Bus').astype(int),
                    is_weekend=((df['data_timestamp'].dt.weekday >= 5)
