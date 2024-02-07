@@ -612,6 +612,7 @@ class MTRTrain(Transport):
         return open(os.path.join(_DIRLOGO, "mtr_train.bmp"), "rb")
 
 
+@singleton
 class CityBus(Transport):
     __path_prefix__ = 'ctb'
 
@@ -708,6 +709,7 @@ class CityBus(Transport):
         return open(os.path.join(_DIRLOGO, "ctb.bmp"), "rb")
 
 
+@singleton
 class NewLantaoBus(Transport):
 
     __path_prefix__ = 'nlb'
