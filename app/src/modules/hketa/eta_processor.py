@@ -20,7 +20,7 @@ _GMT8_TZ = pytz.timezone('Asia/Hong_kong')
 def _convert_gmt8(dt: str | datetime) -> datetime:
     """Set the timezone of the `dt` to GMT+8 (Asia/Hong_kong) and convert the time accordingly."""
     if isinstance(dt, str):
-        dt = datetime.fromisoformat(dt).astimezone()
+        dt = datetime.fromisoformat(dt)
     if dt.tzinfo is None:
         return _GMT8_TZ.localize(dt)
     return dt.astimezone(_GMT8_TZ)
