@@ -110,13 +110,13 @@ class KmbEta(EtaProcessor):
                     raise exceptions.EndOfService
                 raise exceptions.ErrorReturns(stop[f'rmk_{locale}'])
 
+            eta_dt = _parse_timestamp(stop["eta"])
             etas.append(models.Eta(
                 destination=stop[f'dest_{locale}'],
-                is_arriving=False,
+                is_arriving=(eta_dt - timestamp).total_seconds() < 90,
                 is_scheduled=stop.get('rmk_') in ('原定班次', 'Scheduled Bus'),
                 eta=_8601str(_convert_gmt8(stop['eta'])),
-                eta_minute=int(
-                    (_parse_timestamp(stop["eta"]) - timestamp).total_seconds() / 60),
+                eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
                 remark=stop[f'rmk_{locale}']
             ))
 
@@ -280,20 +280,18 @@ class MtrTrainEta(EtaProcessor):
 
     def etas(self) -> dict:
         response = asyncio.run(self.raw_etas())
-        timestamp = _parse_timestamp(response["curr_time"]) \
-            .replace(tzinfo=None)  # curr_time don't include timezone info
+        timestamp = _parse_timestamp(response["curr_time"])
         etas = []
 
         etadata = response['data'][f'{self.linename}-{self.route.entry.stop}'].get(
             self.direction, [])
         for entry in etadata:
-            eta_dt = datetime.fromisoformat(entry["time"])
-
+            eta_dt = _parse_timestamp(entry["time"])
             etas.append(models.Eta(
                 destination=(self.route.stop_details(entry['dest'])
                              .name
                              .get(self.route.entry.lang)),
-                is_arriving=False,
+                is_arriving=(eta_dt - timestamp).total_seconds() < 90,
                 is_scheduled=False,
                 eta=_8601str(_convert_gmt8(entry["time"])),
                 eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
@@ -345,13 +343,13 @@ class BravoBusEta(EtaProcessor):
                     remark=eta[f"rmk_{lang_code}"]
                 ))
             else:
+                eta_dt = _parse_timestamp(eta['eta'])
                 etas.append(models.Eta(
                     destination=eta[f"dest_{lang_code}"],
-                    is_arriving=False,
+                    is_arriving=(eta_dt - timestamp).total_seconds() < 90,
                     is_scheduled=False,
                     eta=_8601str(_convert_gmt8(eta['eta'])),
-                    eta_minute=int(
-                        (_parse_timestamp(eta['eta']) - timestamp).total_seconds() / 60),
+                    eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
                     remark=eta[f"rmk_{lang_code}"]
                 ))
 
@@ -389,7 +387,7 @@ class NlbEta(EtaProcessor):
             etas.append(models.Eta(
                 destination=(
                     self.route.destination().name.get(self.route.entry.lang)),
-                is_arriving=False,
+                is_arriving=(eta_dt - timestamp).total_seconds() < 90,
                 is_scheduled=not (eta.get('departed') == '1'
                                   and eta.get('noGPS') == '1'),
                 eta=_8601str(_convert_gmt8(eta_dt)),
