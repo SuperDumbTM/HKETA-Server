@@ -64,7 +64,7 @@ def get_eta(company: hketa.enums.Company,
                 'etas': provider.etas(),
             }
         )
-    except hketa.exceptions.EmptyDataError:
+    except hketa.exceptions.EmptyEta:
         return std_response.StdResponse.fail(
             message="No ETA available.",
             code=status_code.StatusCode.ETA_EMPTY,

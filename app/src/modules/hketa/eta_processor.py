@@ -111,7 +111,7 @@ class KmbEta(EtaProcessor):
         if len(response) == 0:
             raise exceptions.APIError
         elif response.get('data') is None:
-            raise exceptions.EmptyDataError
+            raise exceptions.EmptyEta
         else:
             return response
 
@@ -300,7 +300,7 @@ class MtrTrainEta(EtaProcessor):
             raise exceptions.APIError
 
         if response['data'][f'{self.linename}-{self.route.entry.stop}'].get(self.direction) is None:
-            raise exceptions.EmptyDataError
+            raise exceptions.EmptyEta
         else:
             return response
 
@@ -351,7 +351,7 @@ class BravoBusEta(EtaProcessor):
         if len(response) == 0 or response.get('data') is None:
             raise exceptions.APIError
         if len(response['data']) == 0:
-            raise exceptions.EmptyDataError
+            raise exceptions.EmptyEta
         return response
 
 
@@ -404,5 +404,5 @@ class NlbEta(EtaProcessor):
             # incorrect parameter will result in a empty json response
             raise exceptions.APIError
         if not response.get('estimatedArrivals', []):
-            raise exceptions.EmptyDataError(response.get('message'))
+            raise exceptions.EmptyEta(response.get('message'))
         return response

@@ -21,7 +21,7 @@ class APIError(HketaException):
     """API returned an error/API call failed/invalid API returns"""
 
 
-class EmptyDataError(HketaException):
+class EmptyEta(HketaException):
     """No ETA data is/can be provided"""
 
 
