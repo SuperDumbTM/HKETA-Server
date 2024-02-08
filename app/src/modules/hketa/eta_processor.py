@@ -113,7 +113,7 @@ class KmbEta(EtaProcessor):
             eta_dt = _parse_timestamp(stop["eta"])
             etas.append(models.Eta(
                 destination=stop[f'dest_{locale}'],
-                is_arriving=(eta_dt - timestamp).total_seconds() < 90,
+                is_arriving=(eta_dt - timestamp).total_seconds() < 60,
                 is_scheduled=stop.get('rmk_') in ('原定班次', 'Scheduled Bus'),
                 eta=_8601str(_convert_gmt8(stop['eta'])),
                 eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
@@ -346,7 +346,7 @@ class BravoBusEta(EtaProcessor):
                 eta_dt = _parse_timestamp(eta['eta'])
                 etas.append(models.Eta(
                     destination=eta[f"dest_{lang_code}"],
-                    is_arriving=(eta_dt - timestamp).total_seconds() < 90,
+                    is_arriving=(eta_dt - timestamp).total_seconds() < 60,
                     is_scheduled=False,
                     eta=_8601str(_convert_gmt8(eta['eta'])),
                     eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
@@ -387,7 +387,7 @@ class NlbEta(EtaProcessor):
             etas.append(models.Eta(
                 destination=(
                     self.route.destination().name.get(self.route.entry.lang)),
-                is_arriving=(eta_dt - timestamp).total_seconds() < 90,
+                is_arriving=(eta_dt - timestamp).total_seconds() < 60,
                 is_scheduled=not (eta.get('departed') == '1'
                                   and eta.get('noGPS') == '1'),
                 eta=_8601str(_convert_gmt8(eta_dt)),
