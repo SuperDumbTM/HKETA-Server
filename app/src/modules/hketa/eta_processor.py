@@ -41,7 +41,7 @@ def _parse_timestamp(iso8601time: str) -> datetime:
     try:
         return _convert_gmt8(iso8601time)
     except ValueError:
-        return datetime.now()
+        return _convert_gmt8(datetime.now())
 
 
 def _8601str(dt: datetime) -> str:
@@ -166,9 +166,9 @@ class MtrBusEta(EtaProcessor):
                     eta_sec = int(eta[f'{time_ref}TimeInSecond'])
                     etas.append(models.Eta(
                         company=enums.Company.MTRBUS,
-                        destination=self.route.destination(),
+                        destination=self.route.destination().name.get(self.route.entry.lang),
                         is_arriving=False,
-                        is_scheduled=eta.get('busLocation').get(
+                        is_scheduled=eta.get('busLocation', {}).get(
                             'longitude') == 0,
                         eta=_8601str(
                             _convert_gmt8(timestamp + timedelta(seconds=eta_sec))),
@@ -177,9 +177,9 @@ class MtrBusEta(EtaProcessor):
                 else:
                     etas.append(models.Eta(
                         company=enums.Company.MTRBUS,
-                        destination=self.route.destination(),
+                        destination=self.route.destination().name.get(self.route.entry.lang),
                         is_arriving=True,
-                        is_scheduled=eta.get('busLocation').get(
+                        is_scheduled=eta.get('busLocation', {}).get(
                             'longitude') == 0,
                         eta=_8601str(_convert_gmt8(datetime.now())),
                         eta_minute=0,
@@ -226,7 +226,7 @@ class MtrLrtEta(EtaProcessor):
                 # 751P have no destination and eta
                 destination = eta.get(f'dest_{lang_code}')
                 if (eta['route_no'] != self.route.entry.no
-                        or destination != self.route.destination()):
+                        or destination != self.route.destination().name.get(self.route.entry.lang)):
                     continue
 
                 # e.g. 3 分鐘 / 即將抵達
@@ -400,7 +400,7 @@ class NlbEta(EtaProcessor):
             etas.append(models.Eta(
                 company=enums.Company.NLB,
                 destination=(
-                    self.route.destination().name[self.route.entry.lang]),
+                    self.route.destination().name.get(self.route.entry.lang)),
                 is_arriving=False,
                 is_scheduled=not (eta.get('departed') == '1'
                                   and eta.get('noGPS') == '1'),
