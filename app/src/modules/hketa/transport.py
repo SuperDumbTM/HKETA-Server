@@ -409,7 +409,7 @@ class MTRBus(Transport):
             direction = self._bound_map[row[1]]
             route_list.setdefault(row[0], {'inbound': [], 'outbound': []})
 
-            if row[2] == "1.00":
+            if row[2] == "1.00" or row[2] == "1":
                 # orignal
                 route_list[row[0]][direction].append({
                     'route_id': f"{row[0]}_{direction}_default",
