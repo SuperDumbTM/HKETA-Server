@@ -62,7 +62,6 @@ class RouteInfo:
 @dataclass(slots=True, frozen=True)
 class Eta:
 
-    company: enums.Company
     destination: str
     is_arriving: bool
     """Indicate whether the vehicle in the vincity of to the stop.
@@ -73,10 +72,10 @@ class Eta:
     eta: Optional[str] = None
     eta_minute: Optional[int] = None
     remark: Optional[str] = None
-    extras: "Eta.ExtraInfo" = Field(default_factory=lambda: Eta.ExtraInfo())
+    extras: "Eta.Extras" = Field(default_factory=lambda: Eta.Extras())
 
     @dataclass(slots=True, frozen=True)
-    class ExtraInfo:
+    class Extras:
 
         platform: Optional[str] = None
         car_length: Optional[int] = None
