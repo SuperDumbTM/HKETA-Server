@@ -22,19 +22,19 @@ except (ImportError, ModuleNotFoundError):
     import transport
 
 
-def _write_raw_csv_worker(path: Path, headers: list[str], etas: list) -> None:
+def _write_raw_csv_worker(path: Path, columns: dict[str, type], etas: list) -> None:
     df = pd.DataFrame([eta for eta in etas if eta['eta'] is not None],
-                      columns=headers,)
+                      columns=columns.keys())
 
     if len(df) == 0:
         return
-    if not os.path.exists(path):
-        old_df = pd.DataFrame(columns=headers)
-    else:
-        try:
-            old_df = pd.read_csv(path, index_col=0, low_memory=False)
-        except pd.errors.ParserError:
-            old_df = pd.DataFrame(columns=headers)
+    try:
+        old_df = pd.read_csv(path,
+                             index_col=0,
+                             low_memory=True,
+                             dtype=columns)
+    except (pd.errors.ParserError, FileNotFoundError):
+        old_df = pd.DataFrame(columns=columns.keys())
 
     pd.concat([old_df, df[df['eta_seq'] == 1]]) \
         .reset_index(drop=True) \
@@ -203,8 +203,17 @@ class Predictor(ABC):
 class KmbPredictor(Predictor):
 
     __path_prefix__ = 'kmb'
-    _HEADS = ['co', 'route', 'dir', 'service_type', 'seq', 'dest_tc', 'dest_sc',
-              'dest_en', 'eta_seq', 'eta', 'rmk_tc', 'rmk_sc', 'rmk_en', 'data_timestamp']
+    _RAW_HEADS = {
+        'co': np.str_,
+        'route': np.str_,
+        'dir': np.str_,
+        'service_type': np.int8,
+        'dest_en': np.str_,
+        'eta_seq': np.int8,
+        'eta': np.str_,
+        'rmk_en': np.str_,
+        'data_timestamp': np.str_
+    }
 
     def predict(self,
                 route_no: str,
@@ -239,7 +248,7 @@ class KmbPredictor(Predictor):
         return model.predict(values)
 
     async def fetch_dataset(self) -> None:
-        async def eta_with_route(r: str, s: aiohttp.ClientSession):
+        async def eta_with_route(r: str, s: aiohttp.ClientSession) -> tuple[str, list]:
             try:
                 return r, (await api_async.kmb_eta(r, 1, s))['data']
             except aiohttp.ClientError:
@@ -252,7 +261,7 @@ class KmbPredictor(Predictor):
         # NOTE: using context manager with multiprocessing.Pool and uvicorn will cause uvicorn to restart
         with Pool(context=SpawnContext()) as pool:
             pool.starmap(_write_raw_csv_worker,
-                         ((self.raws_dir.joinpath(f'{route_no}.csv'), self._HEADS, etas)
+                         ((self.raws_dir.joinpath(f'{route_no}.csv'), self._RAW_HEADS, etas)
                              for route_no, etas in responses))
 
     def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
@@ -284,7 +293,14 @@ class KmbPredictor(Predictor):
 class MtrBusPredictor(Predictor):
 
     __path_prefix__ = 'mtr_bus'
-    _HEADS = ['route', 'dir', 'eta_seq', 'stop', 'eta', 'data_timestamp']
+    _RAW_HEADS = {
+        'route': np.str_,
+        'stop': np.str_,
+        'dir': np.str_,
+        'eta_seq': np.int8,
+        'eta': np.str_,
+        'data_timestamp': np.str_
+    }
 
     async def fetch_dataset(self) -> None:
         processed_etas = {}
@@ -319,7 +335,7 @@ class MtrBusPredictor(Predictor):
         # relativly fast processing time, no need for multiprocessing
         for route_no, etas in processed_etas.items():
             _write_raw_csv_worker(self.raws_dir.joinpath(f'{route_no}.csv'),
-                                  self._HEADS,
+                                  self._RAW_HEADS,
                                   etas)
 
     def raws_to_ml_dataset(self, type_: Literal['day', 'night']) -> None:
