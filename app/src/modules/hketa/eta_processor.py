@@ -392,7 +392,7 @@ class NlbEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        route_id = self.route._provider.routes[self.route.entry.no] \
+        route_id = self.route.provider.routes[self.route.entry.no] \
             .service_lookup(self.route.entry.direction,
                             self.route.entry.service_type) \
             .route_id

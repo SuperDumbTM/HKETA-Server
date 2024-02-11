@@ -34,37 +34,38 @@ class Route:
     Language of information returns depends on the `models.RouteEntry` parameter (if applicatable)
     """
 
-    _provider: transport.Transport
+    entry: models.RouteEntry
+    provider: transport.Transport
     _stop_list: dict[str, models.RouteInfo.Stop]
 
     def __init__(self, entry: models.RouteEntry, transport_: transport.Transport) -> None:
-        self._entry = entry
-        self._provider = transport_
+        self.entry = entry
+        self.provider = transport_
         self._stop_list = {
             stop.stop_code: stop
-            for stop in self._provider.stop_list(entry.no, entry.direction, entry.service_type)
+            for stop in self.provider.stop_list(entry.no, entry.direction, entry.service_type)
         }
 
-        if (self._entry.stop not in self._stop_list.keys()):
-            raise exceptions.StopNotExist(self._entry.stop)
+        if (self.entry.stop not in self._stop_list.keys()):
+            raise exceptions.StopNotExist(self.entry.stop)
 
     def comanpy(self) -> str:
         """Get the operating company name of the route"""
-        return self._entry.company.description(self._entry.lang)
+        return self.entry.company.description(self.entry.lang)
 
     def name(self) -> str:
         """Get the route name of the `entry`"""
-        if isinstance(self._provider, type(transport.MTRTrain)):
-            return MTR_TRAIN_NAMES.get(self._entry.stop, self._entry.stop)
-        return self._entry.no
+        if isinstance(self.provider, type(transport.MTRTrain)):
+            return MTR_TRAIN_NAMES.get(self.entry.stop, self.entry.stop)
+        return self.entry.no
 
     def stop_name(self) -> str:
         """Get the stop name of the route"""
-        return self._stop_list[self._entry.stop].name[self._entry.lang]
+        return self._stop_list[self.entry.stop].name[self.entry.lang]
 
     def stop_seq(self) -> int:
         """Get the stop sequence of the route"""
-        return self._stop_list[self._entry.stop].seq
+        return self._stop_list[self.entry.stop].seq
 
     def stop_details(self, stop_code: str) -> models.RouteInfo.Stop:
         return self._stop_list[stop_code]
@@ -73,24 +74,25 @@ class Route:
         return list(self._stop_list.values())[0]
 
     def destination(self) -> models.RouteInfo.Stop:
-        target = list(self._stop_list.values())[-1]
+        stop = list(self._stop_list.values())[-1]
 
         # NOTE: in/outbound of circular routes are NOT its destination
         # NOTE: 705, 706 return "天水圍循環綫"/'TSW Circular' instead of its destination
-        if self.entry.no in ("705", "706"):
-            return models.RouteInfo.Stop(stop_code=target.stop_code,
-                                         seq=target.seq,
+        if (isinstance(self.provider, type(transport.MTRLightRail))
+                and self.entry.no in ("705", "706")):
+            return models.RouteInfo.Stop(stop_code=stop.stop_code,
+                                         seq=stop.seq,
                                          name={
                                              enums.Locale.EN: "TSW Circular",
                                              enums.Locale.TC: "天水圍循環綫"
                                          })
         else:
-            return target
+            return stop
 
     def stop_type(self) -> enums.StopType:
         """Get the stop type of the stop"""
-        if self.origin().stop_code == self._entry.stop:
+        if self.origin().stop_code == self.entry.stop:
             return enums.StopType.ORIG
-        if self.destination().stop_code == self._entry.stop:
+        if self.destination().stop_code == self.entry.stop:
             return enums.StopType.DEST
         return enums.StopType.STOP
