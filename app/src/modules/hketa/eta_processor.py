@@ -1,17 +1,20 @@
 import asyncio
-from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytz
 
 try:
-    from . import api_async, enums, exceptions, models
+    from . import api_async, enums, exceptions, models, predictor, transport
     from .route import Route
 except (ImportError, ModuleNotFoundError):
     import api_async
     import enums
     import exceptions
     import models
+    import predictor
+    import transport
     from route import Route
 
 _GMT8_TZ = pytz.timezone('Asia/Hong_kong')
@@ -72,6 +75,11 @@ class KmbEta(EtaProcessor):
         # [API Responses Remark]
         #   Timestamps include tzinfo (GMT+8)
 
+        predictor_ = predictor.KmbPredictor(
+            Path(__file__).parents[2].joinpath('datasets', 'kmb'),
+            transport.KowloonMotorBus()
+        )
+
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.fromisoformat(response['generated_timestamp'])
         locale = self._locale_map[self.route.entry.lang]
@@ -93,7 +101,13 @@ class KmbEta(EtaProcessor):
                 is_scheduled=stop.get('rmk_') in ('原定班次', 'Scheduled Bus'),
                 eta=_8601str(eta_dt),
                 eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
-                remark=stop[f'rmk_{locale}']
+                remark=stop[f'rmk_{locale}'],
+                extras=models.Eta.Extras(accuracy=predictor_.predict(self.route.entry.no,
+                                                                     self.route.entry.direction,
+                                                                     self.route.stop_seq(),
+                                                                     stop['data_timestamp'],
+                                                                     stop['eta']
+                                                                     )[0])
             ))
 
             if len(etas) == 3:

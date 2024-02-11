@@ -221,14 +221,14 @@ class KmbPredictor(Predictor):
                 seq: int,
                 data_timestamp: datetime,
                 eta: datetime,
-                rmk_en: str) -> Optional[int]:
+                rmk_en: str) -> list[Optional[int]]:
         try:
             df = pd.read_csv(self.root_dir.joinpath(f'{route_no}_{direction.value}.csv'),
                              low_memory=False)
             if len(df) == 0:
-                return None
+                return [None]
         except FileNotFoundError:
-            return None
+            return [None]
 
         values = [{
             'seq': seq,
