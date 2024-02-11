@@ -37,20 +37,12 @@ class Route:
     _provider: transport.Transport
     _stop_list: dict[str, models.RouteInfo.Stop]
 
-    @property
-    def entry(self):
-        return self._entry
-
     def __init__(self, entry: models.RouteEntry, transport_: transport.Transport) -> None:
         self._entry = entry
         self._provider = transport_
-
-        stop_list = tuple(
-            self._provider.stop_list(entry.no, entry.direction, entry.service_type))
         self._stop_list = {
-            stop: data
-            for stop, data in zip((stop.stop_code for stop in stop_list),
-                                  stop_list)
+            stop.stop_code: stop
+            for stop in self._provider.stop_list(entry.no, entry.direction, entry.service_type)
         }
 
         if (self._entry.stop not in self._stop_list.keys()):
