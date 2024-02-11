@@ -45,13 +45,15 @@ async def init_scheduler():
 
     @scheduler.scheduled_job(trigger='cron', minute='*/1', max_instances=1)
     def fetch_raw_dataset_mtrb_job():
-        asyncio.run(hketa.predictor.MtrBusPredictor(definition.DATASET_PATH,
-                                                    definition.ETA_FACTORY.create_transport(hketa.enums.Transport.MTRBUS)).fetch_dataset())
+        p = (hketa.predictor.MtrBusPredictor(definition.DATASET_PATH,
+                                             definition.ETA_FACTORY.create_transport(hketa.enums.Transport.MTRBUS)))
+        asyncio.run(p.fetch_dataset())
 
     @scheduler.scheduled_job(trigger='cron', minute='*/1', second='10', max_instances=1)
     def fetch_raw_dataset_kmb_job():
-        asyncio.run(hketa.predictor.KmbPredictor(definition.DATASET_PATH,
-                                                 definition.ETA_FACTORY.create_transport(hketa.enums.Transport.KMB)).fetch_dataset())
+        p = hketa.predictor.KmbPredictor(definition.DATASET_PATH,
+                                         definition.ETA_FACTORY.create_transport(hketa.enums.Transport.KMB))
+        asyncio.run(p.fetch_dataset())
 
     @scheduler.scheduled_job(trigger='cron', args=['day'], hour='3', minute='0', max_instances=1)
     @scheduler.scheduled_job(trigger='cron', args=['night'], hour='15', minute='0', max_instances=1)
