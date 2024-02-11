@@ -80,3 +80,4 @@ class Eta:
         platform: Optional[str] = None
         car_length: Optional[int] = None
         route_variant: Optional[str] = None
+        accuracy: Optional[int] = None
