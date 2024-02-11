@@ -69,7 +69,7 @@ class Transport(ABC):
 
     @property
     @abstractmethod
-    def company(self) -> enums.Company:
+    def company(self) -> enums.Transport:
         pass
 
     @property
@@ -299,8 +299,8 @@ class KowloonMotorBus(Transport):
     """Direction mapping to `hketa.enums.Direction`"""
 
     @property
-    def company(self) -> enums.Company:
-        return enums.Company.KMB
+    def company(self) -> enums.Transport:
+        return enums.Transport.KMB
 
     async def fetch_route_list(self) -> dict:
         async def fetch_route_details(session: aiohttp.ClientSession,
@@ -395,8 +395,8 @@ class MTRBus(Transport):
     """Direction mapping to `hketa.enums.Direction`"""
 
     @property
-    def company(self) -> enums.Company:
-        return enums.Company.MTRBUS
+    def company(self) -> enums.Transport:
+        return enums.Transport.MTRBUS
 
     async def fetch_route_list(self) -> dict:
         route_list = {}
@@ -465,8 +465,8 @@ class MTRLightRail(Transport):
     """Direction mapping to `hketa.enums.Direction`"""
 
     @property
-    def company(self) -> enums.Company:
-        return enums.Company.MTRLRT
+    def company(self) -> enums.Transport:
+        return enums.Transport.MTRLRT
 
     async def fetch_route_list(self) -> dict:
         route_list = {}
@@ -535,8 +535,8 @@ class MTRTrain(Transport):
     """Direction mapping to `hketa.enums.Direction`"""
 
     @property
-    def company(self) -> enums.Company:
-        return enums.Company.MTRTRAIN
+    def company(self) -> enums.Transport:
+        return enums.Transport.MTRTRAIN
 
     async def fetch_route_list(self) -> dict:
         route_list = {}
@@ -617,8 +617,8 @@ class CityBus(Transport):
     __path_prefix__ = 'ctb'
 
     @property
-    def company(self) -> enums.Company:
-        return enums.Company.CTB
+    def company(self) -> enums.Transport:
+        return enums.Transport.CTB
 
     async def fetch_route_list(self) -> dict:
         async def fetch_route_details(session: aiohttp.ClientSession,
@@ -715,8 +715,8 @@ class NewLantaoBus(Transport):
     __path_prefix__ = 'nlb'
 
     @property
-    def company(self) -> enums.Company:
-        return enums.Company.NLB
+    def company(self) -> enums.Transport:
+        return enums.Transport.NLB
 
     async def fetch_route_list(self) -> dict:
         output = {}

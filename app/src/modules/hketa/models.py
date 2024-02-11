@@ -14,7 +14,7 @@ except (ImportError, ModuleNotFoundError):
 @dataclass(slots=True)
 class RouteEntry:
 
-    company: enums.Company
+    company: enums.Transport
     no: str
     direction: enums.Direction
     stop: str
@@ -28,7 +28,7 @@ class RouteEntry:
 @dataclass(slots=True)
 class RouteInfo:
 
-    company: enums.Company
+    company: enums.Transport
     route_no: str
     inbound: list["Detail"] = Field(default_factory=list)
     outbound: list["Detail"] = Field(default_factory=list)

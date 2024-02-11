@@ -11,7 +11,7 @@ router = APIRouter(prefix="")
 
 
 @router.get("/eta/{company}/{route_no}")
-def get_eta(company: hketa.enums.Company,
+def get_eta(company: hketa.enums.Transport,
             route_no: str,
             direction: hketa.enums.Direction,
             stop_code: str,

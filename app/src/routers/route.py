@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get("/routes/{company}")
-def get_route_list(company: hketa.enums.Company,
+def get_route_list(company: hketa.enums.Transport,
                    route_no: Optional[str] = None,
                    service_type: Optional[str | int] = None,
                    terminal_name: Optional[str] = None,
@@ -47,7 +47,7 @@ def get_route_list(company: hketa.enums.Company,
 
 
 @router.get("/services/{company}/{route_no}")
-def get_route_details(company: hketa.enums.Company,
+def get_route_details(company: hketa.enums.Transport,
                       route_no: str = None,
                       ) -> std_response.StdResponse:
     route_list = definition.ETA_FACTORY \
@@ -61,7 +61,7 @@ def get_route_details(company: hketa.enums.Company,
 
 
 @router.get("/stops/{company}/{route_no}")
-def get_stop_list(company: hketa.enums.Company,
+def get_stop_list(company: hketa.enums.Transport,
                   route_no: str,
                   direction: hketa.enums.Direction,
                   service_type: str) -> std_response.StdResponse:
@@ -78,7 +78,7 @@ def get_stop_list(company: hketa.enums.Company,
 
 
 @router.get("/stop/{company}/{route_no}")
-def get_stop(company: hketa.enums.Company,
+def get_stop(company: hketa.enums.Transport,
              route_no: str,
              direction: hketa.enums.Direction,
              service_type: str,

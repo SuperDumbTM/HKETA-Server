@@ -15,8 +15,8 @@ class Locale(str, Enum):
                 return "English"
 
 
-class Company(str, Enum):
-    """Company identifier for transport companies"""
+class Transport(str, Enum):
+    """Enums representing different types of transport"""
 
     KMB = "kmb"
     MTRBUS = "mtr_bus"
@@ -29,20 +29,20 @@ class Company(str, Enum):
     def description(self, language: Locale = Locale.TC) -> str:
         if language == Locale.EN:
             match self:
-                case Company.KMB: return "KMB"
-                case Company.MTRBUS: return "MTR (Bus)"
-                case Company.MTRLRT: return "MTR (Light Rail)"
-                case Company.MTRTRAIN: return "MTR"
-                case Company.CTB: return "City Bus"
-                case Company.NLB: return "New Lantao Bus"
+                case Transport.KMB: return "KMB"
+                case Transport.MTRBUS: return "MTR (Bus)"
+                case Transport.MTRLRT: return "MTR (Light Rail)"
+                case Transport.MTRTRAIN: return "MTR"
+                case Transport.CTB: return "City Bus"
+                case Transport.NLB: return "New Lantao Bus"
         else:
             match self:
-                case Company.KMB: return "九巴"
-                case Company.MTRBUS: return "港鐵巴士"
-                case Company.MTRLRT: return "輕鐵"
-                case Company.MTRTRAIN: return "港鐵"
-                case Company.CTB: return "城巴"
-                case Company.NLB: return "新大嶼山巴士"
+                case Transport.KMB: return "九巴"
+                case Transport.MTRBUS: return "港鐵巴士"
+                case Transport.MTRLRT: return "輕鐵"
+                case Transport.MTRTRAIN: return "港鐵"
+                case Transport.CTB: return "城巴"
+                case Transport.NLB: return "新大嶼山巴士"
 
 
 class Direction(str, Enum):
@@ -64,7 +64,7 @@ class Direction(str, Enum):
 
 
 class StopType(str, Enum):
-    """Stop type of a stop"""
+    """Type of a stop"""
 
     ORIG = ORIGINATION = "orig"
     STOP = MIDWAY = "stop"
