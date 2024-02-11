@@ -813,12 +813,3 @@ class NewLantaoBus(Transport):
     def logo(self) -> io.BufferedReader:
         """Get the company logo in bytes"""
         raise NotImplementedError
-
-
-if __name__ == '__main__':
-    import pprint
-
-    t = MTRLightRail(Path(__file__).parents[3].joinpath('caches', 'transport_data'),
-                     True,
-                     30)
-    pprint.pprint(tuple(t.stop_list('706', 'inbound', 'default')))
