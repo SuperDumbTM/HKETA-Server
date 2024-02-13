@@ -251,7 +251,7 @@ class KmbPredictor(Predictor):
         async def eta_with_route(r: str, s: aiohttp.ClientSession) -> tuple[str, list]:
             try:
                 return r, (await api_async.kmb_eta(r, 1, s))['data']
-            except aiohttp.ClientError:
+            except (aiohttp.ClientError, asyncio.TimeoutError):
                 return r, []
 
         async with aiohttp.ClientSession() as s:
