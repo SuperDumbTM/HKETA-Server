@@ -76,8 +76,8 @@ class KmbEta(EtaProcessor):
         #   Timestamps include tzinfo (GMT+8)
 
         predictor_ = predictor.KmbPredictor(
-            Path(__file__).parents[2].joinpath('datasets', 'kmb'),
-            transport.KowloonMotorBus()
+            Path(__file__).parents[3].joinpath('caches', 'datasets'),
+            self.route.provider
         )
 
         response = asyncio.run(self.raw_etas())
@@ -105,8 +105,11 @@ class KmbEta(EtaProcessor):
                 extras=models.Eta.Extras(accuracy=predictor_.predict(self.route.entry.no,
                                                                      self.route.entry.direction,
                                                                      self.route.stop_seq(),
-                                                                     stop['data_timestamp'],
-                                                                     stop['eta']
+                                                                     datetime.fromisoformat(
+                                                                         stop['data_timestamp']),
+                                                                     datetime.fromisoformat(
+                                                                         stop['eta']),
+                                                                     stop['rmk_en'],
                                                                      )[0])
             ))
 
@@ -138,6 +141,11 @@ class MtrBusEta(EtaProcessor):
         # [API Responses Remark]
         #   Timestamps do not include tzinfo (GMT+8)
 
+        predictor_ = predictor.MtrBusPredictor(
+            Path(__file__).parents[3].joinpath('caches', 'datasets'),
+            self.route.provider
+        )
+
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.strptime(response["routeStatusTime"], "%Y/%m/%d %H:%M") \
             .astimezone(_GMT8_TZ)
@@ -161,6 +169,11 @@ class MtrBusEta(EtaProcessor):
                         is_scheduled=eta['busLocation']['longitude'] == 0,
                         eta=_8601str(timestamp + timedelta(seconds=eta_sec)),
                         eta_minute=eta[f'{time_ref}TimeText'].split(" ")[0],
+                        extras=models.Eta.Extras(accuracy=predictor_.predict(self.route.entry.no,
+                                                                             self.route.entry.direction,
+                                                                             self.route.entry.stop,
+                                                                             timestamp,
+                                                                             timestamp + timedelta(seconds=eta_sec)))
                     ))
                 else:
                     etas.append(models.Eta(
@@ -169,7 +182,7 @@ class MtrBusEta(EtaProcessor):
                         is_scheduled=eta['busLocation']['longitude'] == 0,
                         eta=_8601str(datetime.now().astimezone(_GMT8_TZ)),
                         eta_minute=0,
-                        remark=eta[f'{time_ref}TimeText']
+                        remark=eta[f'{time_ref}TimeText'],
                     ))
             break
 

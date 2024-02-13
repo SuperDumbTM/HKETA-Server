@@ -165,7 +165,8 @@ def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
 
     df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
         .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
-    df = df.assign(year=df['data_timestamp'].dt.year,
+    df = df.assign(stop=df['stop'].str.split('-').str.get(1).str.extract(r'(\d+)').astype(int),
+                   year=df['data_timestamp'].dt.year,
                    month=df['data_timestamp'].dt.month,
                    day=df['data_timestamp'].dt.day,
                    hour=df['data_timestamp'].dt.hour,
@@ -173,10 +174,11 @@ def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                    eta_hour=df['eta'].dt.hour,
                    eta_minute=df['eta'].dt.minute,
                    is_weekend=(
-        df['data_timestamp'].dt.weekday >= 5).astype(int),
-        tta=(df['eta'] - df['data_timestamp']
-             ).dt.total_seconds(),
-        accuracy='')
+                       df['data_timestamp'].dt.weekday >= 5).astype(int),
+                   tta=(df['eta'] - df['data_timestamp']).dt.total_seconds(),
+                   accuracy=''
+                   ) \
+        .drop(columns=['route', 'eta_seq'], errors='ignore')
 
     _ml_dataset_clean_n_join(
         df[df['dir'] == 'O'], out_dir.joinpath(f'{route}_outbound.csv'))
@@ -188,9 +190,9 @@ class Predictor(ABC):
 
     __path_prefix__: str
 
-    def __init__(self, directory: os.PathLike[str], transport_: transport.Transport) -> None:
+    def __init__(self, data_dir: os.PathLike[str], transport_: transport.Transport) -> None:
         self.transport_ = transport_
-        self.root_dir = Path(str(directory)) \
+        self.root_dir = Path(str(data_dir)) \
             .joinpath(self.__path_prefix__ or self.__class__.__name__.lower())
         self.raws_dir = self.root_dir.joinpath('raws')
 
@@ -230,22 +232,21 @@ class KmbPredictor(Predictor):
         except FileNotFoundError:
             return [None]
 
-        values = [{
-            'seq': seq,
-            'year': data_timestamp.year,
-            'month': data_timestamp.month,
-            'day': data_timestamp.day,
-            'hour': data_timestamp.hour,
-            'minute': data_timestamp.minute,
-            'eta_hour': eta.hour,
-            'eta_minute': eta.minute,
-            'is_schedule': 'Scheduled' in rmk_en,
-            'is_weekend': data_timestamp.weekday() >= 5
-        }]
-
         model = sklearn.tree.DecisionTreeClassifier()
-        model.fit(df.values[:-2], df.values[:-1])
-        return model.predict(values)
+        model.fit(df.iloc[:, 0:-2].values, df.iloc[:, -1].values)
+        return model.predict([[
+            seq,
+            data_timestamp.year,
+            data_timestamp.month,
+            data_timestamp.day,
+            data_timestamp.hour,
+            data_timestamp.minute,
+            eta.hour,
+            eta.minute,
+            'Delayed journey' in rmk_en,
+            'Scheduled' in rmk_en,
+            data_timestamp.weekday() >= 5,
+        ]])
 
     async def fetch_dataset(self) -> None:
         async def eta_with_route(r: str, s: aiohttp.ClientSession) -> tuple[str, list]:
@@ -301,6 +302,34 @@ class MtrBusPredictor(Predictor):
         'eta': np.str_,
         'data_timestamp': np.str_
     }
+
+    def predict(self,
+                route_no: str,
+                direction: enums.Direction,
+                stop_code: str,
+                data_timestamp: datetime,
+                eta: datetime) -> list[Optional[int]]:
+        try:
+            df = pd.read_csv(self.root_dir.joinpath(f'{route_no}_{direction.value}.csv'),
+                             low_memory=False)
+            if len(df) == 0:
+                return [None]
+        except FileNotFoundError:
+            return [None]
+
+        model = sklearn.tree.DecisionTreeClassifier()
+        model.fit(df.iloc[:, 0:-2].values, df.iloc[:, -1].values)
+        return model.predict([[
+            ''.join(filter(str.isdigit, stop_code.split('-')[-1])),
+            data_timestamp.year,
+            data_timestamp.month,
+            data_timestamp.day,
+            data_timestamp.hour,
+            data_timestamp.minute,
+            eta.hour,
+            eta.minute,
+            data_timestamp.weekday() >= 5,
+        ]])
 
     async def fetch_dataset(self) -> None:
         processed_etas = {}
@@ -360,25 +389,3 @@ class MtrBusPredictor(Predictor):
 
         for path in raw_paths:
             os.remove(self.raws_dir.joinpath(path))
-
-    def _process_raw_dataset(self, route: str, df: pd.DataFrame) -> None:
-        df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
-            .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
-
-        df = df.assign(year=df['data_timestamp'].dt.year,
-                       month=df['data_timestamp'].dt.month,
-                       day=df['data_timestamp'].dt.day,
-                       hour=df['data_timestamp'].dt.hour,
-                       minute=df['data_timestamp'].dt.minute,
-                       eta_hour=df['eta'].dt.hour,
-                       eta_minute=df['eta'].dt.minute,
-                       is_weekend=(
-            df['data_timestamp'].dt.weekday >= 5).astype(int),
-            tta=(df['eta'] - df['data_timestamp']
-                 ).dt.total_seconds(),
-            accuracy='')
-
-        _ml_dataset_clean_n_join(
-            df[df['dir'] == 'O'], Path(__file__).parent.joinpath('mtr_bus', f'{route}_outbound.csv'))
-        _ml_dataset_clean_n_join(
-            df[df['dir'] == 'I'], Path(__file__).parent.joinpath('mtr_bus', f'{route}_inbound.csv'))
