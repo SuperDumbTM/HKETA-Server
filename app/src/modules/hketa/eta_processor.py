@@ -1,4 +1,5 @@
 import asyncio
+import os
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 import pytz
 
 try:
-    from . import api_async, enums, exceptions, models, predictor, transport
+    from . import api_async, enums, exceptions, models, predictor
     from .route import Route
 except (ImportError, ModuleNotFoundError):
     import api_async
@@ -14,10 +15,11 @@ except (ImportError, ModuleNotFoundError):
     import exceptions
     import models
     import predictor
-    import transport
     from route import Route
 
 _GMT8_TZ = pytz.timezone('Asia/Hong_kong')
+_DATASET_PATH = Path(
+    os.environ.get('APP_CACHE_PATH', str(Path(__file__).parents[3].joinpath('caches', 'dataset'))))
 
 
 def _8601str(dt: datetime) -> str:
@@ -76,7 +78,7 @@ class KmbEta(EtaProcessor):
         #   Timestamps include tzinfo (GMT+8)
 
         predictor_ = predictor.KmbPredictor(
-            Path(__file__).parents[3].joinpath('caches', 'datasets'),
+            _DATASET_PATH,
             self.route.provider
         )
 
@@ -142,7 +144,7 @@ class MtrBusEta(EtaProcessor):
         #   Timestamps do not include tzinfo (GMT+8)
 
         predictor_ = predictor.MtrBusPredictor(
-            Path(__file__).parents[3].joinpath('caches', 'datasets'),
+            _DATASET_PATH,
             self.route.provider
         )
 
