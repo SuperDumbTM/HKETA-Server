@@ -115,17 +115,19 @@ def _ml_dataset_clean_n_join(df: pd.DataFrame, filepath: Path) -> None:
 
 
 def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
-    df = pd.read_csv(raw_path,
-                     on_bad_lines='warn',
-                     low_memory=False,
-                     index_col=[0])
+    df: pd.DataFrame = pd.read_csv(raw_path,
+                                   on_bad_lines='warn',
+                                   date_parser=lambda x: pd.to_datetime(x,
+                                                                        format='ISO8601',
+                                                                        errors='coerce'),
+                                   parse_dates=['eta', 'data_timestamp'],
+                                   low_memory=False,
+                                   index_col=[0])
 
     if len(df) == 0:
         # also aviod error: "Can only use .dt accessor with datetimelike values"
         return
 
-    df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
-        .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
     df = df.assign(year=df['data_timestamp'].dt.year,
                    month=df['data_timestamp'].dt.month,
                    day=df['data_timestamp'].dt.day,
@@ -142,9 +144,7 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                                .astype(int)),
                    tta=(df['eta'] - df['data_timestamp']).dt.total_seconds(),
                    accuracy=np.nan) \
-        .drop(columns=['co', 'eta_seq', 'dest_tc', 'dest_sc', 'dest_en', 'weather',
-                       'service_type', 'route', 'rmk_tc', 'rmk_sc', 'rmk_en',],
-              errors='ignore') \
+        .drop(columns=['eta_seq', 'rmk_en'], errors='ignore') \
         .rename({'seq': 'stop'}, axis=1)
 
     _ml_dataset_clean_n_join(
@@ -154,17 +154,19 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
 
 
 def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
-    df = pd.read_csv(raw_path,
-                     on_bad_lines='warn',
-                     low_memory=False,
-                     index_col=[0])
+    df: pd.DataFrame = pd.read_csv(raw_path,
+                                   on_bad_lines='warn',
+                                   date_parser=lambda x: pd.to_datetime(x,
+                                                                        format='ISO8601',
+                                                                        errors='coerce'),
+                                   parse_dates=['eta', 'data_timestamp'],
+                                   low_memory=False,
+                                   index_col=[0])
 
     if len(df) == 0:
         # also aviod error: "Can only use .dt accessor with datetimelike values"
         return
 
-    df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
-        .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
     df = df.assign(stop=df['stop'].str.split('-').str.get(1).str.extract(r'(\d+)').astype(int),
                    year=df['data_timestamp'].dt.year,
                    month=df['data_timestamp'].dt.month,
@@ -206,11 +208,8 @@ class KmbPredictor(Predictor):
 
     __path_prefix__ = 'kmb'
     _RAW_HEADS = {
-        'co': np.str_,
         'seq': np.int8,
         'dir': np.str_,
-        'service_type': np.int8,
-        'dest_en': np.str_,
         'eta_seq': np.int8,
         'eta': np.str_,
         'rmk_en': np.str_,
