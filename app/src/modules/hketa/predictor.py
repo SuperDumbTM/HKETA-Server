@@ -207,7 +207,7 @@ class KmbPredictor(Predictor):
     __path_prefix__ = 'kmb'
     _RAW_HEADS = {
         'co': np.str_,
-        'route': np.str_,
+        'seq': np.int8,
         'dir': np.str_,
         'service_type': np.int8,
         'dest_en': np.str_,
