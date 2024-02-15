@@ -99,7 +99,7 @@ class KmbEta(EtaProcessor):
             eta_dt = datetime.fromisoformat(stop["eta"])
             etas.append(models.Eta(
                 destination=stop[f'dest_{locale}'],
-                is_arriving=(eta_dt - timestamp).total_seconds() < 60,
+                is_arriving=(eta_dt - timestamp).total_seconds() < 30,
                 is_scheduled=stop.get('rmk_') in ('原定班次', 'Scheduled Bus'),
                 eta=_8601str(eta_dt),
                 eta_minute=int((eta_dt - timestamp).total_seconds() / 60),
