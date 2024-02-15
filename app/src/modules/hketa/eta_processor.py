@@ -76,6 +76,7 @@ class KmbEta(EtaProcessor):
     def etas(self):
         # [API Responses Remark]
         #   Timestamps include tzinfo (GMT+8)
+        #   Remark (ETA) at "rmk_{locale}"
 
         predictor_ = predictor.KmbPredictor(
             _DATASET_PATH,
@@ -142,6 +143,8 @@ class MtrBusEta(EtaProcessor):
     def etas(self):
         # [API Responses Remark]
         #   Timestamps do not include tzinfo (GMT+8)
+        #   Remark (route) at "routeStatusRemarkTitle" & "routeStatusRemarkContent"
+        #   Remark (stop) at "busStopStatusRemarkTitle" & "busStopStatusRemarkContent"
 
         predictor_ = predictor.MtrBusPredictor(
             _DATASET_PATH,
@@ -219,6 +222,7 @@ class MtrLrtEta(EtaProcessor):
     def etas(self):
         # [API Responses Remark]
         #   Timestamps do not include tzinfo (GMT+8)
+        #   No remark fields
 
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.fromisoformat(response['system_time']) \
@@ -290,6 +294,7 @@ class MtrTrainEta(EtaProcessor):
     def etas(self) -> dict:
         # [API Responses Remark]
         #   Timestamps do not include tzinfo (GMT+8)
+        #   No remark fields
 
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.fromisoformat(response["curr_time"]) \
@@ -340,6 +345,7 @@ class BravoBusEta(EtaProcessor):
     def etas(self) -> dict:
         # [API Responses Remark]
         #   Timestamps include tzinfo (GMT+8)
+        #   Remark (ETA) at "rmk_{locale}"
 
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.fromisoformat(response['generated_timestamp'])
