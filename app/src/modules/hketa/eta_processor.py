@@ -18,8 +18,9 @@ except (ImportError, ModuleNotFoundError):
     from route import Route
 
 _GMT8_TZ = pytz.timezone('Asia/Hong_kong')
-_DATASET_PATH = Path(
-    os.environ.get('APP_CACHE_PATH', str(Path(__file__).parents[3].joinpath('caches', 'dataset'))))
+_DATASET_PATH = Path(os.environ.get('APP_CACHE_PATH',
+                                    str(Path(__file__).parents[3].joinpath('caches')))) \
+    .joinpath('datasets')
 
 
 def _8601str(dt: datetime) -> str:
