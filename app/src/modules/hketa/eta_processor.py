@@ -238,14 +238,13 @@ class MtrLrtEta(EtaProcessor):
                 # e.g. 3 分鐘 / 即將抵達
                 eta_min = eta[f'time_{lang_code}'].split(" ")[0]
                 if eta_min.isnumeric():
-                    eta_min = int(eta_min)
-
                     etas.append(models.Eta(
                         destination=destination,
                         is_arriving=False,
                         is_scheduled=False,
-                        eta=_8601str(timestamp + timedelta(minutes=eta_min)),
-                        eta_minute=eta_min,
+                        eta=_8601str(
+                            timestamp + timedelta(minutes=float(eta_min))),
+                        eta_minute=int(eta_min),
                         extras=models.Eta.Extras(
                             platform=str(platform['platform_id']),
                             car_length=eta['train_length']
