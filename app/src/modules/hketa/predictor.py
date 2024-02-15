@@ -303,28 +303,32 @@ class MtrBusPredictor(Predictor):
                 direction: enums.Direction,
                 stop_code: str,
                 data_timestamp: datetime,
-                eta: datetime) -> list[Optional[int]]:
+                eta: datetime) -> Optional[int]:
         try:
             df = pd.read_csv(self.root_dir.joinpath(f'{route_no}_{direction.value}.csv'),
                              low_memory=False)
             if len(df) == 0:
-                return [None]
+                return None
         except FileNotFoundError:
-            return [None]
+            return None
 
         model = sklearn.tree.DecisionTreeClassifier()
         model.fit(df.iloc[:, 0:-2].values, df.iloc[:, -1].values)
-        return model.predict([[
-            ''.join(filter(str.isdigit, stop_code.split('-')[-1])),
-            data_timestamp.year,
-            data_timestamp.month,
-            data_timestamp.day,
-            data_timestamp.hour,
-            data_timestamp.minute,
-            eta.hour,
-            eta.minute,
-            data_timestamp.weekday() >= 5,
-        ]])
+
+        try:
+            return model.predict([[
+                ''.join(filter(str.isdigit, stop_code.split('-')[-1])),
+                data_timestamp.year,
+                data_timestamp.month,
+                data_timestamp.day,
+                data_timestamp.hour,
+                data_timestamp.minute,
+                eta.hour,
+                eta.minute,
+                data_timestamp.weekday() >= 5,
+            ]])[0]
+        except IndexError:
+            return None
 
     async def fetch_dataset(self) -> None:
         processed_etas = {}

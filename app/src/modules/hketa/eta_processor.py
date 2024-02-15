@@ -113,7 +113,7 @@ class KmbEta(EtaProcessor):
                                                                      datetime.fromisoformat(
                                                                          stop['eta']),
                                                                      stop['rmk_en'],
-                                                                     )[0])
+                                                                     ))
             ))
 
             if len(etas) == 3:
