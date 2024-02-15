@@ -117,10 +117,6 @@ def _ml_dataset_clean_n_join(df: pd.DataFrame, filepath: Path) -> None:
 def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
     df: pd.DataFrame = pd.read_csv(raw_path,
                                    on_bad_lines='warn',
-                                   date_parser=lambda x: pd.to_datetime(x,
-                                                                        format='ISO8601',
-                                                                        errors='coerce'),
-                                   parse_dates=['eta', 'data_timestamp'],
                                    low_memory=False,
                                    index_col=[0])
 
@@ -128,6 +124,8 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
         # also aviod error: "Can only use .dt accessor with datetimelike values"
         return
 
+    df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
+        .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
     df = df.assign(year=df['data_timestamp'].dt.year,
                    month=df['data_timestamp'].dt.month,
                    day=df['data_timestamp'].dt.day,
@@ -156,10 +154,6 @@ def _kmb_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
 def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
     df: pd.DataFrame = pd.read_csv(raw_path,
                                    on_bad_lines='warn',
-                                   date_parser=lambda x: pd.to_datetime(x,
-                                                                        format='ISO8601',
-                                                                        errors='coerce'),
-                                   parse_dates=['eta', 'data_timestamp'],
                                    low_memory=False,
                                    index_col=[0])
 
@@ -167,6 +161,8 @@ def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
         # also aviod error: "Can only use .dt accessor with datetimelike values"
         return
 
+    df[['eta', 'data_timestamp']] = df[['eta', 'data_timestamp']] \
+        .apply(pd.to_datetime, format='ISO8601', cache=True, errors='coerce')
     df = df.assign(stop=df['stop'].str.split('-').str.get(1).str.extract(r'(\d+)').astype(int),
                    year=df['data_timestamp'].dt.year,
                    month=df['data_timestamp'].dt.month,
