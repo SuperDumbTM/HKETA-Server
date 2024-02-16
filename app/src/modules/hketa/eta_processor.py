@@ -154,7 +154,7 @@ class MtrBusEta(EtaProcessor):
 
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.strptime(response["routeStatusTime"], "%Y/%m/%d %H:%M") \
-            .astimezone(_GMT8_TZ)
+            .replace(tzinfo=pytz.timezone('Etc/GMT-8'))
         etas = []
 
         for stop in response["busStop"]:
@@ -227,7 +227,7 @@ class MtrLrtEta(EtaProcessor):
 
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.fromisoformat(response['system_time']) \
-            .astimezone(_GMT8_TZ)
+            .replace(tzinfo=pytz.timezone('Etc/GMT-8'))
         lang_code = self._locale_map[self.route.entry.lang]
         etas = []
 
@@ -299,14 +299,14 @@ class MtrTrainEta(EtaProcessor):
 
         response = asyncio.run(self.raw_etas())
         timestamp = datetime.fromisoformat(response["curr_time"]) \
-            .astimezone(_GMT8_TZ)
+            .replace(tzinfo=pytz.timezone('Etc/GMT-8'))
         etas = []
 
         etadata = response['data'][f'{self.linename}-{self.route.entry.stop}'].get(
             self.direction, [])
         for entry in etadata:
             eta_dt = datetime.fromisoformat(entry["time"]) \
-                .astimezone(_GMT8_TZ)
+                .replace(tzinfo=pytz.timezone('Etc/GMT-8'))
             etas.append(models.Eta(
                 destination=(self.route.stop_details(entry['dest'])
                              .name
@@ -405,7 +405,7 @@ class NlbEta(EtaProcessor):
         #   Timestamps do not tzinfo (GMT+8)
 
         response = asyncio.run(self.raw_etas())
-        timestamp = datetime.now().astimezone(_GMT8_TZ)
+        timestamp = datetime.now().replace(tzinfo=pytz.timezone('Etc/GMT-8'))
         etas = []
 
         for eta in response['estimatedArrivals']:
