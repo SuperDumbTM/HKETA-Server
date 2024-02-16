@@ -410,7 +410,7 @@ class NlbEta(EtaProcessor):
 
         for eta in response['estimatedArrivals']:
             eta_dt = datetime.fromisoformat(eta['estimatedArrivalTime']) \
-                .astimezone(_GMT8_TZ)
+                .replace(tzinfo=pytz.timezone('Etc/GMT-8'))
 
             etas.append(models.Eta(
                 destination=(
