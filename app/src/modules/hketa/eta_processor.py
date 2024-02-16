@@ -94,7 +94,7 @@ class KmbEta(EtaProcessor):
                     or stop["dir"] != self.route.entry.direction[0].upper()):
                 continue
             if stop["eta"] is None:
-                if stop[f'rmk_{locale}'] == "":
+                if stop[f'rmk_{locale}'] in ("", "最後班次已過", "最后班次已过", "The final bus has departed from this stop"):
                     raise exceptions.EndOfService
                 raise exceptions.ErrorReturns(stop[f'rmk_{locale}'])
 
