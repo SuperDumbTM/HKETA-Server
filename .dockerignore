@@ -3,3 +3,4 @@
 *.md
 /.vscode
 /scripts
+/app/caches
