@@ -78,8 +78,7 @@ class Route:
 
         # NOTE: in/outbound of circular routes are NOT its destination
         # NOTE: 705, 706 return "天水圍循環綫"/'TSW Circular' instead of its destination
-        if (isinstance(self.provider, type(transport.MTRLightRail))
-                and self.entry.no in ("705", "706")):
+        if self.entry.company == enums.Transport.MTRLRT and self.entry.no in ("705", "706"):
             return models.RouteInfo.Stop(stop_code=stop.stop_code,
                                          seq=stop.seq,
                                          name={
