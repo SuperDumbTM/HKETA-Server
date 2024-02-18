@@ -73,7 +73,7 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
         for idx, row in enumerate(etas):
             is_arrived = False
 
-            if 90 > last_tta >= row.tta or 30 >= row.tta:
+            if 150 >= last_tta >= row.tta or 90 > row.tta:
                 up = dn = 0
                 sub_last_tta = row.tta
                 for sub_row in etas[idx + 1:]:
