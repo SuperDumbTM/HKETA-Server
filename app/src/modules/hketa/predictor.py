@@ -12,6 +12,7 @@ from typing import Literal, Optional
 import aiohttp
 import numpy as np
 import pandas as pd
+import pytz
 import sklearn.tree
 
 try:
@@ -77,7 +78,8 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
                 up = dn = 0
                 sub_last_tta = row.tta
                 for sub_row in etas[idx + 1:]:
-                    if sub_row.tta > 90:  # large gap between TTA, probably next schedule
+                    if (sub_row.tta > 90  # large gap between TTA, probably next schedule
+                            or sub_row.tta - sub_last_tta > 300):
                         is_arrived = True
                         break
                     up += sub_row.tta >= sub_last_tta
@@ -332,7 +334,8 @@ class MtrBusPredictor(Predictor):
 
     async def fetch_dataset(self) -> None:
         processed_etas = {}
-        data_timestamp = datetime.now()  # timestamp from the API is not accurate enough
+        # timestamp from the API is not accurate enough
+        data_timestamp = datetime.now(tz=pytz.timezone('Etc/GMT-8'))
         async with aiohttp.ClientSession() as s:
             responses = await asyncio.gather(*[api_async.mtr_bus_eta(r, 'en', s)
                                              for r in self.transport_.route_list().keys()],
