@@ -174,7 +174,7 @@ def _mtr_raw_2_dataset_worker(route: str, raw_path: Path, out_dir: Path):
                    is_weekend=(
                        df['data_timestamp'].dt.weekday >= 5).astype(int),
                    tta=(df['eta'] - df['data_timestamp']).dt.total_seconds(),
-                   accuracy=''
+                   accuracy=np.nan,
                    ) \
         .drop(columns=['route', 'eta_seq'], errors='ignore')
 
