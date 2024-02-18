@@ -72,16 +72,18 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
         #   Example: 127, 58, 5, 2, *-79, 225, 224, 246, 232, 200
         # Violation
         #   Example: 445, 385, 325, 263, (205), 209, 150, 88, *19, 865
+        #   Example: 471, 411, 352, 292, 231, (172), 173, 134, 87, 31, *0, 771
 
         for idx, row in enumerate(etas):
             is_arrived = False
 
-            if 150 >= last_tta >= row.tta or 90 > row.tta:
+            if (last_tta >= row.tta and 210 > row.tta) or 90 > row.tta:
                 up = dn = 0
                 sub_last_tta = row.tta
                 for sub_row in etas[idx + 1:]:
-                    if (sub_row.tta > 120  # large gap between TTA, probably next schedule
-                            or sub_row.tta - sub_last_tta > 300):
+                    if sub_row.tta > 300:
+                        # large gap between TTA, probably next schedule
+                        # must lager than "entering" condition
                         is_arrived = True
                         break
                     up += sub_row.tta >= sub_last_tta
