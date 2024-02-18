@@ -70,6 +70,8 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
         #   Example: 121, 44, 12, -26, *6, 322
         #   Example: 220, 141, 73, 46, 24, -39, 10, *-17, 191
         #   Example: 127, 58, 5, 2, *-79, 225, 224, 246, 232, 200
+        # Violation
+        #   Example: 445, 385, 325, 263, (205), 209, 150, 88, *19, 865
 
         for idx, row in enumerate(etas):
             is_arrived = False
