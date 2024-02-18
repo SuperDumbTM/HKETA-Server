@@ -77,7 +77,7 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
                 up = dn = 0
                 sub_last_tta = row.tta
                 for sub_row in etas[idx + 1:]:
-                    if sub_row.tta > 120:  # large gap between TTA, probably next schedule
+                    if sub_row.tta > 90:  # large gap between TTA, probably next schedule
                         is_arrived = True
                         break
                     up += sub_row.tta >= sub_last_tta
