@@ -44,8 +44,7 @@ def _write_raw_csv_worker(path: Path, columns: dict[str, type], etas: list) -> N
 
 def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
     for _, group in df.groupby('stop'):
-        schedules = []
-        last_tta, last_timestamp = float('inf'), None
+        schedules, last_tta = [], float('inf')
         etas = tuple(group.itertuples())
 
         # Normal
@@ -115,8 +114,7 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
                         df.loc[index, ['accuracy']] = np.nan
                     else:
                         df.loc[index, ['accuracy']] = round(error / 60)
-                schedules = []
-                last_tta = float('inf')
+                schedules, last_tta = [], float('inf')
     return df.dropna(subset=['accuracy'])
 
 
