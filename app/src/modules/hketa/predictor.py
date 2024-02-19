@@ -53,6 +53,7 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
         # Close TTA between two consecutive schedule
         #   Example: 234, 220, 126, 69, 4, *-65, 109 , 33, -46, 4, -60, -4, *-70, 245, 149, 149, 43, *-26, 137
         #   Example: *-4, 99, 59, 28, *-11, 61, 10, 55, *7, 280
+        #   Example: 234, 172, 143, 131, 80, 32, *-32, 83, 40, *-35, 313, 253
         # Arrival at positive TTA
         #   Example: 303, 252, 201, 142, 141, 11, *-54, 180, 120, 36, 11, *11, 315
         #   Example: 244, 215, 214, 144, 80, *2, 132, 84
@@ -73,19 +74,24 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
         # Violation
         #   Example: 445, 385, 325, 263, (205), 209, 150, 88, *19, 865
         #   Example: 471, 411, 352, 292, 231, (172), 173, 134, 87, 31, *0, 771
+        #   Example: 135, 46, 1, -52, 5, (-57), 69, 11, *-63, 132, 61
 
         for idx, row in enumerate(etas):
             is_arrived = False
-
-            if (last_tta >= row.tta and 210 > row.tta) or 90 > row.tta:
+            if idx + 1 < len(etas) and 60 >= row.tta and etas[idx + 1].tta - row.tta > 90:
+                # 179, 117, 58, 8, *0, 132, 260, 220, 162, *14, 248, 247, 248, *(8)
+                is_arrived = True
+            elif (last_tta >= row.tta and 210 > row.tta) or 90 > row.tta:
                 up = dn = 0
                 sub_last_tta = row.tta
                 for sub_row in etas[idx + 1:]:
                     if sub_row.tta > 300:
-                        # large gap between TTA, probably next schedule
-                        # must lager than "entering" condition
                         is_arrived = True
                         break
+                    if abs(sub_last_tta - sub_row.tta) < 20:
+                        # small difference, probably a fluctuation
+                        break
+
                     up += sub_row.tta >= sub_last_tta
                     dn += sub_row.tta < sub_last_tta
                     sub_last_tta = sub_row.tta
@@ -93,24 +99,25 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
                     if dn == 0 and up > 1 or up == 0 and dn > 0:
                         break
                     if up + dn >= 3:
+                        # TODO: check + 1 係唔係繼續跌
                         is_arrived = (up == 1 and dn == 2)  # u d d // (u d u)
                         break
 
             schedules.append((row.Index, row.eta))
             last_tta = row.tta
-            last_timestamp = row.data_timestamp
 
             if is_arrived:
                 for index, eta in schedules:
-                    error = (eta - last_timestamp).total_seconds()
+                    error = (eta - row.data_timestamp).total_seconds()
                     if math.isnan(error) or abs(error) > 7200:
                         # 1. malformated timestamp will result int float('nan')
                         # 2. ignore unusual TTA
-                        continue
-                    df.loc[index, ['accuracy']] = round(error / 60)
+                        df.loc[index, ['accuracy']] = np.nan
+                    else:
+                        df.loc[index, ['accuracy']] = round(error / 60)
                 schedules = []
-                last_tta, last_timestamp = float('inf'), None
-    return df
+                last_tta = float('inf')
+    return df.dropna(subset=['accuracy'])
 
 
 def _ml_dataset_clean_n_join(df: pd.DataFrame, filepath: Path) -> None:
