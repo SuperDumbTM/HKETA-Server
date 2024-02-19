@@ -108,7 +108,7 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
             if is_arrived:
                 for index, eta in schedules:
                     error = (eta - row.data_timestamp).total_seconds()
-                    if math.isnan(error) or abs(error) > 7200:
+                    if math.isnan(error) or abs(error) > 1800:
                         # 1. malformated timestamp will result int float('nan')
                         # 2. ignore unusual TTA
                         df.loc[index, ['accuracy']] = np.nan
