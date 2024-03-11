@@ -16,8 +16,10 @@ class RouteEntry:
 
     company: enums.Transport
     no: str
+    """route number"""
     direction: enums.Direction
     stop: str
+    """stop ID"""
     service_type: str
     lang: enums.Locale
 
