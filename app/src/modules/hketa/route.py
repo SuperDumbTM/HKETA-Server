@@ -59,6 +59,11 @@ class Route:
             return MTR_TRAIN_NAMES.get(self.entry.stop, self.entry.stop)
         return self.entry.no
 
+    def id(self) -> str:
+        return self.provider.routes[self.entry.no] \
+            .service_lookup(self.entry.direction, self.entry.service_type) \
+            .route_id
+
     def stop_name(self) -> str:
         """Get the stop name of the route"""
         return self._stop_list[self.entry.stop].name[self.entry.lang]

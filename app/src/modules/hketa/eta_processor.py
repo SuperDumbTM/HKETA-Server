@@ -427,11 +427,7 @@ class NlbEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        route_id = self.route.provider.routes[self.route.entry.no] \
-            .service_lookup(self.route.entry.direction,
-                            self.route.entry.service_type) \
-            .route_id
-        response = await api_async.nlb_eta(route_id,
+        response = await api_async.nlb_eta(self.route.id(),
                                            self.route.entry.stop,
                                            self._lang_map[self.route.entry.lang])
 
