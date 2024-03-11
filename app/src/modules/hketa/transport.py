@@ -1,6 +1,5 @@
 import asyncio
 import csv
-from functools import cmp_to_key
 import io
 import json
 import logging
@@ -8,15 +7,16 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
+from functools import cmp_to_key
 from pathlib import Path
 from typing import Any, Generator, Optional
 
 import aiohttp
 
 try:
-    from . import api_async, enums, exceptions, models
+    from . import api, enums, exceptions, models
 except ImportError:
-    import api_async
+    import api
     import enums
     import exceptions
     import models
@@ -308,7 +308,7 @@ class KowloonMotorBus(Transport):
             """Fetch the terminal stops details for the `stop`
             """
             direction = self._bound_map[stop['bound']]
-            stop_list = (await api_async.kmb_route_stop_list(
+            stop_list = (await api.kmb_route_stop_list(
                 stop['route'], direction, stop['service_type'], session))['data']
             return {
                 'name': stop['route'],
@@ -338,7 +338,7 @@ class KowloonMotorBus(Transport):
         route_list = {}
         async with aiohttp.ClientSession() as session:
             tasks = (fetch_route_details(session, stop)
-                     for stop in (await api_async.kmb_route_list(session))['data'])
+                     for stop in (await api.kmb_route_list(session))['data'])
 
             for route in await asyncio.gather(*tasks):
                 # route name
@@ -359,7 +359,7 @@ class KowloonMotorBus(Transport):
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             """Fetch `stop_code`, `seq`, `name` of the 'stop'
             """
-            dets = (await api_async.kmb_stop_details(stop['stop'], session))['data']
+            dets = (await api.kmb_stop_details(stop['stop'], session))['data']
             return {
                 'stop_code': stop['stop'],
                 'seq': stop['seq'],
@@ -370,7 +370,7 @@ class KowloonMotorBus(Transport):
             }
 
         async with aiohttp.ClientSession() as session:
-            stop_list = await api_async.kmb_route_stop_list(
+            stop_list = await api.kmb_route_stop_list(
                 route_no, direction.value, service_type, session)
 
             stops = await asyncio.gather(
@@ -400,7 +400,7 @@ class MTRBus(Transport):
 
     async def fetch_route_list(self) -> dict:
         route_list = {}
-        apidata = csv.reader(await api_async.mtr_bus_stop_list())
+        apidata = csv.reader(await api.mtr_bus_stop_list())
         next(apidata)  # ignore header line
 
         for row in apidata:
@@ -438,7 +438,7 @@ class MTRBus(Transport):
             raise exceptions.ServiceTypeNotExist(service_type)
 
         async with aiohttp.ClientSession() as session:
-            apidata = csv.reader(await api_async.mtr_bus_stop_list(session))
+            apidata = csv.reader(await api.mtr_bus_stop_list(session))
 
         stops = [stop for stop in apidata
                  if stop[0] == route_no and self._bound_map[stop[1]] == direction]
@@ -470,7 +470,7 @@ class MTRLightRail(Transport):
 
     async def fetch_route_list(self) -> dict:
         route_list = {}
-        apidata = csv.reader(await api_async.mtr_lrt_route_stop_list())
+        apidata = csv.reader(await api.mtr_lrt_route_stop_list())
         next(apidata)  # ignore the header line
 
         for row in apidata:
@@ -509,7 +509,7 @@ class MTRLightRail(Transport):
         if route_no not in self.routes.keys():
             raise exceptions.RouteNotExist(route_no)
 
-        apidata = csv.reader(await api_async.mtr_lrt_route_stop_list())
+        apidata = csv.reader(await api.mtr_lrt_route_stop_list())
         stops = [stop for stop in apidata
                  if stop[0] == route_no and self._bound_map[stop[1]] == direction]
 
@@ -540,7 +540,7 @@ class MTRTrain(Transport):
 
     async def fetch_route_list(self) -> dict:
         route_list = {}
-        apidata = csv.reader(await api_async.mtr_train_route_stop_list())
+        apidata = csv.reader(await api.mtr_train_route_stop_list())
         next(apidata)  # ignore header line
 
         for row in apidata:
@@ -588,7 +588,7 @@ class MTRTrain(Transport):
         if route_no not in self.routes.keys():
             raise exceptions.RouteNotExist(route_no)
 
-        apidata = csv.reader(await api_async.mtr_train_route_stop_list())
+        apidata = csv.reader(await api.mtr_train_route_stop_list())
 
         if "-" in route_no:
             # route with multiple origin/destination (e.g. EAL-LMC)
@@ -626,9 +626,9 @@ class CityBus(Transport):
             """Fetch the terminal stops details (all direction) for the `route`
             """
             directions = {
-                'inbound': (await api_async.bravobus_route_stop_list(
+                'inbound': (await api.bravobus_route_stop_list(
                     "ctb", route['route'], "inbound", session))['data'],
-                'outbound': (await api_async.bravobus_route_stop_list(
+                'outbound': (await api.bravobus_route_stop_list(
                     "ctb", route['route'], "outbound", session))['data']
             }
 
@@ -638,8 +638,8 @@ class CityBus(Transport):
                     continue
 
                 ends = await asyncio.gather(*[
-                    api_async.bravobus_stop_details(stop_list[0]['stop']),
-                    api_async.bravobus_stop_details(stop_list[-1]['stop'])
+                    api.bravobus_stop_details(stop_list[0]['stop']),
+                    api.bravobus_stop_details(stop_list[-1]['stop'])
                 ])
 
                 routes[route['route']][direction] = [{
@@ -666,7 +666,7 @@ class CityBus(Transport):
 
         async with aiohttp.ClientSession() as session:
             tasks = [fetch_route_details(session, stop) for stop in
-                     (await api_async.bravobus_route_list("ctb", session))['data']]
+                     (await api.bravobus_route_list("ctb", session))['data']]
 
             # keys()[0] = route name
             return {list(route.keys())[0]: route[list(route.keys())[0]]
@@ -684,7 +684,7 @@ class CityBus(Transport):
         async def fetch_stop_details(session: aiohttp.ClientSession, stop: dict):
             """Fetch `stop_code`, `seq`, `name` of the 'stop'
             """
-            dets = (await api_async.bravobus_stop_details(stop['stop'], session))['data']
+            dets = (await api.bravobus_stop_details(stop['stop'], session))['data']
             return {
                 'stop_code': stop['stop'],
                 'seq': int(stop['seq']),
@@ -695,7 +695,7 @@ class CityBus(Transport):
             }
 
         async with aiohttp.ClientSession() as session:
-            stop_list = await api_async.bravobus_route_stop_list(
+            stop_list = await api.bravobus_route_stop_list(
                 "ctb", route_no, direction.value, session)
 
             stop_list = await asyncio.gather(
@@ -724,7 +724,7 @@ class NewLantaoBus(Transport):
         async def fetch_route_details(route: dict, session: aiohttp.ClientSession):
             """Return the origin and destination details of a route.
             """
-            stops = (await api_async.nlb_route_stop_list(route['routeId'], session))['stops']
+            stops = (await api.nlb_route_stop_list(route['routeId'], session))['stops']
             return {
                 "route_no": route['routeNo'],
                 "route_id": route['routeId'],
@@ -745,7 +745,7 @@ class NewLantaoBus(Transport):
         async with aiohttp.ClientSession() as s:
             routes = await asyncio.gather(
                 *[fetch_route_details(r, s) for r in
-                  sorted((await api_async.nlb_route_list(s))['routes'],
+                  sorted((await api.nlb_route_list(s))['routes'],
                          key=cmp_to_key(lambda a, b: int(a['routeId']) - int(b['routeId'])))])
 
         for route in routes:
@@ -806,7 +806,7 @@ class NewLantaoBus(Transport):
             'name': {
                 enums.Locale.TC.value: stop['stopName_c'],
                 enums.Locale.EN.value: stop['stopName_s'],
-            }} for idx, stop in enumerate((await api_async.nlb_route_stop_list(route_id))['stops'],
+            }} for idx, stop in enumerate((await api.nlb_route_stop_list(route_id))['stops'],
                                           start=1)
         ]
 

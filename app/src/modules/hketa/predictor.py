@@ -1,8 +1,8 @@
-from abc import ABC
 import asyncio
 import glob
 import math
 import os
+from abc import ABC
 from datetime import datetime, timedelta
 from multiprocessing.context import SpawnContext
 from multiprocessing.pool import Pool
@@ -16,9 +16,9 @@ import pytz
 import sklearn.tree
 
 try:
-    from . import api_async, enums, transport
+    from . import api, enums, transport
 except (ImportError, ModuleNotFoundError):
-    import api_async
+    import api
     import enums
     import transport
 
@@ -257,7 +257,7 @@ class KmbPredictor(Predictor):
     async def fetch_dataset(self) -> None:
         async def eta_with_route(r: str, s: aiohttp.ClientSession) -> tuple[str, list]:
             try:
-                return r, (await api_async.kmb_eta(r, 1, s))['data']
+                return r, (await api.kmb_eta(r, 1, s))['data']
             except (aiohttp.ClientError, asyncio.TimeoutError):
                 return r, []
 
@@ -346,7 +346,7 @@ class MtrBusPredictor(Predictor):
         # timestamp from the API is not accurate enough
         data_timestamp = datetime.now(tz=pytz.timezone('Etc/GMT-8'))
         async with aiohttp.ClientSession() as s:
-            responses = await asyncio.gather(*[api_async.mtr_bus_eta(r, 'en', s)
+            responses = await asyncio.gather(*[api.mtr_bus_eta(r, 'en', s)
                                              for r in self.transport_.route_list().keys()],
                                              return_exceptions=True)
 

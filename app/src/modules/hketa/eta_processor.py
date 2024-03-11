@@ -7,10 +7,10 @@ from pathlib import Path
 import pytz
 
 try:
-    from . import api_async, enums, exceptions, models, predictor
+    from . import api, enums, exceptions, models, predictor
     from .route import Route
 except (ImportError, ModuleNotFoundError):
-    import api_async
+    import api
     import enums
     import exceptions
     import models
@@ -126,7 +126,7 @@ class KmbEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api_async.kmb_eta(
+        response = await api.kmb_eta(
             self.route.entry.no, self.route.entry.service_type)
 
         if len(response) == 0:
@@ -202,7 +202,7 @@ class MtrBusEta(EtaProcessor):
         #      raise APIError
         #  elif data["routeStatusRemarkTitle"] == "停止服務":
         #      raise EndOfServices
-        response = await api_async.mtr_bus_eta(
+        response = await api.mtr_bus_eta(
             self.route.name(), self._locale_map[self.route.entry.lang])
 
         if len(response) == 0:
@@ -272,7 +272,7 @@ class MtrLrtEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api_async.mtr_lrt_eta(self.route.entry.stop)
+        response = await api.mtr_lrt_eta(self.route.entry.stop)
 
         if len(response) == 0 or response.get('status', 0) == 0:
             raise exceptions.APIError
@@ -321,9 +321,9 @@ class MtrTrainEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api_async.mtr_train_eta(self.linename,
-                                                 self.route.entry.stop,
-                                                 self.route.entry.lang)
+        response = await api.mtr_train_eta(self.linename,
+                                           self.route.entry.stop,
+                                           self.route.entry.lang)
         if len(response) == 0:
             raise exceptions.APIError
         if response.get('status', 0) == 0:
@@ -380,9 +380,9 @@ class BravoBusEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api_async.bravobus_eta(self.route.entry.company.value,
-                                                self.route.entry.stop,
-                                                self.route.entry.no)
+        response = await api.bravobus_eta(self.route.entry.company.value,
+                                          self.route.entry.stop,
+                                          self.route.entry.no)
         if len(response) == 0 or response.get('data') is None:
             raise exceptions.APIError
         if len(response['data']) == 0:
@@ -427,9 +427,9 @@ class NlbEta(EtaProcessor):
         return etas
 
     async def raw_etas(self) -> dict[str | int]:
-        response = await api_async.nlb_eta(self.route.id(),
-                                           self.route.entry.stop,
-                                           self._lang_map[self.route.entry.lang])
+        response = await api.nlb_eta(self.route.id(),
+                                     self.route.entry.stop,
+                                     self._lang_map[self.route.entry.lang])
 
         if len(response) == 0:
             # incorrect parameter will result in a empty json response

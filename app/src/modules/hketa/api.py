@@ -5,14 +5,16 @@ This module includes methods to retrive transport related data (e.g. ETA)\
 import logging
 from typing import Literal
 
-import requests
+import aiohttp
 
 # ----------------------------------------
 #               ETA APIs
 # ----------------------------------------
 
 
-def kmb_eta(route: str, services_type: str | int) -> dict:
+async def kmb_eta(route: str,
+                  services_type: str | int,
+                  session: aiohttp.ClientSession = None) -> dict:
     """
     Fetche KMB/LWB buses ETA (by route) from `ETA Data` API
 
@@ -31,12 +33,49 @@ def kmb_eta(route: str, services_type: str | int) -> dict:
     """
     url = f"https://data.etabus.gov.hk/v1/transport/kmb/route-eta/{route}/{services_type}"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-def mtr_bus_eta(route: str, lang: Literal["zh", "en"]) -> dict:
+async def nlb_eta(route_id: str,
+                  stop_id: str | int,
+                  language: Literal['en', 'zh', 'cn'] = 'en',
+                  session: aiohttp.ClientSession = None) -> dict:
+    """
+    Fetche NLB buses ETA from `Bus estimated arrivals of a stop of a route` API
+
+    NLB API(s): https://data.gov.hk/tc-data/dataset/nlb-bus-nlb-bus-service-v2
+
+    Returns:
+        dict: see https://www.nlb.com.hk/datagovhk/BusServiceOpenAPIDocumentation2.0.pdf
+
+    Raises:
+        aiohttp.ClientError: An error occurred when making the HTTP request
+    """
+    url = "https://rt.data.gov.hk/v2/transport/nlb/stop.php"
+    params = {
+        'action': "estimatedArrivals",
+        'routeId': route_id,
+        'stopId': stop_id,
+        'language': language,
+    }
+
+    if session is None:
+        async with aiohttp.request('GET', url, params=params, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, params=params, raise_for_status=True) as response:
+            return await response.json()
+
+
+async def mtr_bus_eta(route: str,
+                      lang: Literal["zh", "en"],
+                      session: aiohttp.ClientSession = None) -> dict:
     """Fetche MTR buses ETA (by route) from `Real-time MTR Bus and Feeder Bus Schedule` API
 
     MTR bus API(s): https://data.gov.hk/en-data/dataset/mtr-mtr_bus-mtr-bus-eta-data
@@ -54,14 +93,23 @@ def mtr_bus_eta(route: str, lang: Literal["zh", "en"]) -> dict:
     """
     url = "https://rt.data.gov.hk/v1/transport/mtr/bus/getSchedule"
     logging.debug("POST request to '%s'", url)
-    response = requests.post(url,
-                             json={"language": lang, "routeName": route},
-                             timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request(
+                'POST',
+                url,
+                json={"language": lang, "routeName": route},
+                raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.post(
+                url,
+                json={"language": lang, "routeName": route},
+                raise_for_status=True) as response:
+            return await response.json()
 
 
-def mtr_lrt_eta(stop: int) -> dict:
+async def mtr_lrt_eta(stop: int, session: aiohttp.ClientSession = None) -> dict:
     """Fetche MTR LRTs ETA (by stop) from `Real-time Light Rail train information` API
 
     MTR light rail API(s): https://data.gov.hk/en-data/dataset/mtr-lrnt_data-light-rail-nexttrain-data
@@ -78,14 +126,26 @@ def mtr_lrt_eta(stop: int) -> dict:
     """
     url = "https://rt.data.gov.hk/v1/transport/mtr/lrt/getSchedule"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url,
-                            params={"station_id": stop},
-                            timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request(
+                'GET',
+                url,
+                params={"station_id": stop},
+                raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(
+                url,
+                params={"station_id": stop},
+                raise_for_status=True) as response:
+            return await response.json()
 
 
-def mtr_train_eta(route: str, stop: str, lang: Literal["tc", "en"]) -> dict:
+async def mtr_train_eta(route: str,
+                        stop: str,
+                        lang: Literal["tc", "en"],
+                        session: aiohttp.ClientSession = None) -> dict:
     """Fetch MTR trains ETA (by route + stop) from `Real-time MTR train information` API
 
     MTR trains API(s): https://data.gov.hk/en-data/dataset/mtr-data2-nexttrain-data
@@ -104,16 +164,26 @@ def mtr_train_eta(route: str, stop: str, lang: Literal["tc", "en"]) -> dict:
     """
     url = "https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url,
-                            params={"line": route, "sta": stop, "lang": lang},
-                            timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request(
+                'GET',
+                url,
+                params={"line": route, "sta": stop, "lang": lang},
+                raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(
+                url,
+                params={"line": route, "sta": stop, "lang": lang},
+                raise_for_status=True) as response:
+            return await response.json()
 
 
-def bravobus_eta(company: Literal["ctb", "nwfb"],
-                 stop_id: str,
-                 route: str) -> dict:
+async def bravobus_eta(company: Literal["ctb", "nwfb"],
+                       stop_id: str,
+                       route: str,
+                       session: aiohttp.ClientSession = None) -> dict:
     """
     Fetch CityBus/NWFB buses ETA (by route) from `Estimated Time of Arrival (ETA) data` API
 
@@ -135,16 +205,20 @@ def bravobus_eta(company: Literal["ctb", "nwfb"],
     """
     url = f"https://rt.data.gov.hk/v1.1/transport/citybus-nwfb/eta/{company}/{stop_id}/{route}"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
 # ----------------------------------------
 #              Route Details
 # ----------------------------------------
 
-def mtr_bus_stop_list() -> list:
+async def mtr_bus_stop_list(session: aiohttp.ClientSession = None) -> list:
     """Fetch MTR buses stop list from `MTR Bus & Feeder Bus Stops` API
 
     MTR API(s): https://data.gov.hk/tc-data/dataset/mtr-data-routes-fares-barrier-free-facilities
@@ -161,12 +235,16 @@ def mtr_bus_stop_list() -> list:
     """
     url = "https://opendata.mtr.com.hk/data/mtr_bus_stops.csv"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    response = response.content.decode().splitlines()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
 
 
-def mtr_bus_route_list() -> list:
+async def mtr_bus_route_list(session: aiohttp.ClientSession = None) -> list:
     """Fetch MTR buses available route list from `MTR Bus & Feeder Bus Routes` API
 
     MTR API(s): https://data.gov.hk/tc-data/dataset/mtr-data-routes-fares-barrier-free-facilities
@@ -183,12 +261,16 @@ def mtr_bus_route_list() -> list:
     """
     url = "https://opendata.mtr.com.hk/data/mtr_bus_routes.csv"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.content.decode().splitlines()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
 
 
-def mtr_lrt_route_stop_list() -> list:
+async def mtr_lrt_route_stop_list(session: aiohttp.ClientSession = None) -> list:
     """Fetch MTR light rail details (availavle routes & respective stops) from `Light Rail Routes & Stops` API
 
     MTR API(s): https://data.gov.hk/tc-data/dataset/mtr-data-routes-fares-barrier-free-facilities
@@ -205,12 +287,16 @@ def mtr_lrt_route_stop_list() -> list:
     """
     url = "https://opendata.mtr.com.hk/data/light_rail_routes_and_stops.csv"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.content.decode().splitlines()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
 
 
-def mtr_train_route_stop_list() -> list:
+async def mtr_train_route_stop_list(session: aiohttp.ClientSession = None) -> list:
     """Fetch MTR trains (availavle routes & respective stops) from `MTR Lines (except Light Rail) & Stations` API
 
     MTR API(s): https://data.gov.hk/tc-data/dataset/mtr-data-routes-fares-barrier-free-facilities
@@ -227,12 +313,16 @@ def mtr_train_route_stop_list() -> list:
     """
     url = "https://opendata.mtr.com.hk/data/mtr_lines_and_stations.csv"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.content.decode().splitlines()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return (await response.text("utf-8")).splitlines()
 
 
-def kmb_route_list() -> dict:
+async def kmb_route_list(session: aiohttp.ClientSession = None) -> dict:
     """Fetch KMB available route list from `Route List Data` API
 
     KMB API(s): https://data.gov.hk/en-data/dataset/hk-td-tis_21-etakmb
@@ -248,14 +338,19 @@ def kmb_route_list() -> dict:
     """
     url = "https://data.etabus.gov.hk/v1/transport/kmb/route/"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-def kmb_route_stop_list(route: str,
-                        direction: Literal["inbound", "outbound"],
-                        services_type: int) -> dict:
+async def kmb_route_stop_list(route: str,
+                              direction: Literal["inbound", "outbound"],
+                              services_type: int,
+                              session: aiohttp.ClientSession = None) -> dict:
     """Fetch KMB stop list (by route) from `Route-Stop Data` API
 
     KMB API(s): https://data.gov.hk/en-data/dataset/hk-td-tis_21-etakmb
@@ -274,12 +369,17 @@ def kmb_route_stop_list(route: str,
     """
     url = f"https://data.etabus.gov.hk/v1/transport/kmb/route-stop/{route}/{direction}/{services_type}"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-def kmb_stop_details(stop_id: str) -> dict:
+async def kmb_stop_details(stop_id: str,
+                           session: aiohttp.ClientSession = None) -> dict:
     """Fetch KMB stop information from `Stop Data` API
 
     KMB API(s): https://data.gov.hk/en-data/dataset/hk-td-tis_21-etakmb
@@ -296,12 +396,17 @@ def kmb_stop_details(stop_id: str) -> dict:
     """
     url = f"https://data.etabus.gov.hk/v1/transport/kmb/stop/{stop_id}"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-def bravobus_route_list(company: Literal["ctb", "nwfb"]) -> dict:
+async def bravobus_route_list(company: Literal["ctb", "nwfb"],
+                              session: aiohttp.ClientSession = None) -> dict:
     """Fetch CityBus/NWFB available route list by route from `Route data` API
 
     CTB API(s): https://data.gov.hk/en-data/dataset/ctb-eta-transport-realtime-eta
@@ -319,15 +424,20 @@ def bravobus_route_list(company: Literal["ctb", "nwfb"]) -> dict:
     """
     url = f"https://rt.data.gov.hk/v2/transport/citybus/route/{company}"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-def bravobus_route_stop_list(
+async def bravobus_route_stop_list(
         company: Literal["ctb"],
         route: str,
-        direction: Literal["inbound", "outbound"]) -> dict:
+        direction: Literal["inbound", "outbound"],
+        session: aiohttp.ClientSession = None) -> dict:
     """Fetch CityBys/NWFB stop list (by route) from `Bus Stop List of specific Route data` API
 
     CTB API(s): https://data.gov.hk/en-data/dataset/ctb-eta-transport-realtime-eta
@@ -347,12 +457,17 @@ def bravobus_route_stop_list(
     """
     url = f"https://rt.data.gov.hk/v2/transport/citybus/route-stop/{company}/{route}/{direction}"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-def bravobus_stop_details(stop_id: str) -> dict:
+async def bravobus_stop_details(stop_id: str,
+                                session: aiohttp.ClientSession = None) -> dict:
     """Fetch CityBus/NWFB stop information from `Stop Data` API
 
     CTB API(s): https://data.gov.hk/en-data/dataset/ctb-eta-transport-realtime-eta
@@ -369,12 +484,16 @@ def bravobus_stop_details(stop_id: str) -> dict:
     """
     url = f"https://rt.data.gov.hk/v2/transport/citybus/stop/{stop_id}"
     logging.debug("GET request to '%s'", url)
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-async def nlb_route_list() -> dict:
+async def nlb_route_list(session: aiohttp.ClientSession = None) -> dict:
     """Fetch NLB available route list from `Route List Data` API
 
     NLB API(s): https://data.gov.hk/en-data/dataset/nlb-bus-nlb-bus-service-v2
@@ -389,12 +508,16 @@ async def nlb_route_list() -> dict:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = "https://rt.data.gov.hk/v2/transport/nlb/route.php?action=list"
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
 
 
-async def nlb_route_stop_list(route_id: str) -> dict:
+async def nlb_route_stop_list(route_id: str,
+                              session: aiohttp.ClientSession = None) -> dict:
     """Fetch NLB stop list (by route) from `Route-Stop Data` API
 
     NLB API(s): https://data.gov.hk/en-data/dataset/nlb-bus-nlb-bus-service-v2
@@ -409,6 +532,9 @@ async def nlb_route_stop_list(route_id: str) -> dict:
         aiohttp.ClientError: An error occurred when making the HTTP request
     """
     url = f"https://rt.data.gov.hk/v2/transport/nlb/stop.php?action=list&routeId={route_id}"
-    response = requests.get(url, timeout=60)
-    response.raise_for_status()
-    return response.json()
+    if session is None:
+        async with aiohttp.request('GET', url, raise_for_status=True) as response:
+            return await response.json()
+    else:
+        async with session.get(url, raise_for_status=True) as response:
+            return await response.json()
