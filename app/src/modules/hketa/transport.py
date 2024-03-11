@@ -643,7 +643,7 @@ class CityBus(Transport):
                 ])
 
                 routes[route['route']][direction] = [{
-                    'route_id': f"{route['route']}-{direction}-default",
+                    'route_id': f"{route['route']}_{direction}_default",
                     'service_type': "default",
                     'orig': {
                         'stop_code': stop_list[0]['stop'],
