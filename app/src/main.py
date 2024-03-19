@@ -69,7 +69,7 @@ async def init_scheduler():
             definition.DATASET_PATH, definition.ETA_FACTORY.create_transport(hketa.enums.Transport.KMB)) \
             .raws_to_ml_dataset(type_)
 
-    # scheduler.start()
+    scheduler.start()
 
 
 @app.on_event("shutdown")
