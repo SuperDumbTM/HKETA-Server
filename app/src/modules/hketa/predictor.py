@@ -286,7 +286,7 @@ class KmbPredictor(Predictor):
         raw_paths = glob.glob('*_copy.csv', root_dir=self.raws_dir)
 
         # NOTE: using context manager with multiprocessing.Pool and uvicorn will cause uvicorn to restart
-        with Pool(maxtasksperchild=20, context=SpawnContext()) as pool:
+        with Pool(context=SpawnContext()) as pool:
             pool.starmap(_kmb_raw_2_dataset_worker,
                          ((Path(filepath.replace('_copy', '')).stem,
                            self.raws_dir.joinpath(filepath),
