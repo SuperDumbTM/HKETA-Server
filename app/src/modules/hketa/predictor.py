@@ -113,7 +113,7 @@ def _calculate_etas_error(df: pd.DataFrame) -> pd.DataFrame:
                         # 2. ignore unusual TTA
                         df.loc[index, ['accuracy']] = np.nan
                     else:
-                        df.loc[index, ['accuracy']] = round(error / 60)
+                        df.loc[index, ['accuracy']] = int(round(error / 60))
                 schedules, last_tta = [], float('inf')
     return df.dropna(subset=['accuracy'])
 
