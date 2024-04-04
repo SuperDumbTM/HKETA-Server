@@ -31,7 +31,7 @@ scheduler = None
 async def init_scheduler():
     global scheduler
 
-    scheduler = AsyncIOScheduler(
+    scheduler = BackgroundScheduler(
         jobstores={
             'default': MemoryJobStore(),
         },
