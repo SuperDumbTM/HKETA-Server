@@ -238,21 +238,24 @@ class KmbPredictor(Predictor):
         except FileNotFoundError:
             return [None]
 
-        model = sklearn.tree.DecisionTreeClassifier()
-        model.fit(df.iloc[:, 0:-2].values, df.iloc[:, -1].values)
-        return model.predict([[
-            seq,
-            data_timestamp.year,
-            data_timestamp.month,
-            data_timestamp.day,
-            data_timestamp.hour,
-            data_timestamp.minute,
-            eta.hour,
-            eta.minute,
-            'Delayed journey' in rmk_en,
-            'Scheduled' in rmk_en,
-            data_timestamp.weekday() >= 5,
-        ]])
+        try:
+            model = sklearn.tree.DecisionTreeClassifier()
+            model.fit(df.iloc[:, 0:-2].values, df.iloc[:, -1].values)
+            return model.predict([[
+                seq,
+                data_timestamp.year,
+                data_timestamp.month,
+                data_timestamp.day,
+                data_timestamp.hour,
+                data_timestamp.minute,
+                eta.hour,
+                eta.minute,
+                'Delayed journey' in rmk_en,
+                'Scheduled' in rmk_en,
+                data_timestamp.weekday() >= 5,
+            ]])[0]
+        except Exception:
+            return None
 
     async def fetch_dataset(self) -> None:
         async def eta_with_route(r: str, s: aiohttp.ClientSession) -> tuple[str, list]:
@@ -338,7 +341,7 @@ class MtrBusPredictor(Predictor):
                 eta.minute,
                 data_timestamp.weekday() >= 5,
             ]])[0]
-        except IndexError:
+        except Exception:
             return None
 
     async def fetch_dataset(self) -> None:
