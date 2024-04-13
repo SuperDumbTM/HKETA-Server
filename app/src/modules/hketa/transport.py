@@ -805,7 +805,7 @@ class NewLantaoBus(Transport):
             'seq': idx,
             'name': {
                 enums.Locale.TC.value: stop['stopName_c'],
-                enums.Locale.EN.value: stop['stopName_s'],
+                enums.Locale.EN.value: stop['stopName_e'],
             }} for idx, stop in enumerate((await api.nlb_route_stop_list(route_id))['stops'],
                                           start=1)
         ]
